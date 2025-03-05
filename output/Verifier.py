@@ -1,4 +1,4 @@
-import json, os, re
+import json, os, re, logging
 from typing import Dict, List, Union
 
 import GlobalConfig
@@ -203,7 +203,11 @@ def compareInputToOutput(cardIdsToVerify: Union[List[int], None]):
 		# If this isn't English, compare with the English results
 		# English is easier to manually verify, so this is done to prevent mistakes or oddities, like ability type mismatches between languages
 		if idToEnglishOutputCard:
-			englishCard = idToEnglishOutputCard[outputCard["id"]]
+			try:
+				englishCard = idToEnglishOutputCard[outputCard["id"]]
+			except KeyError:
+				logging.warning(f"ID {outputCard['id']} trouvé dans les cartes {GlobalConfig.language.englishName} mais pas dans les cartes anglaises, impossible de comparer")
+				continue
 			cardId = outputCard["id"]
 			for fieldname in ('abilities', 'artistsText', 'enchantedId', 'cost', 'effects', 'fullTextSections', 'inkwell', 'keywordAbilities',
 							  'lore', 'moveCost', 'nonEnchantedId', 'nonPromoId', 'number', 'strength', 'subtypes', 'variant', 'variandIds', 'willPower'):

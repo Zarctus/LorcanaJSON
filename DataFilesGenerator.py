@@ -1067,13 +1067,17 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 					reminderText = reminderText.replace("\n", " ")
 				keywordValue: Optional[str] = None
 				if keyword[-1].isnumeric():
-					keyword, keywordValue = keyword.rsplit(" ", 1)
+					if " " in keyword:
+						keyword, keywordValue = keyword.rsplit(" ", 1)
+					else:
+						# Définir une valeur par défaut pour keywordValue ou gérer autrement
+						keywordValue = ""
 				elif ":" in keyword:
 					keyword, keywordValue = re.split(" ?: ?", keyword)
 				ability["keyword"] = keyword
 				if keywordValue is not None:
 					ability["keywordValue"] = keywordValue
-					if keywordValue[-1].isnumeric():
+					if keywordValue and keywordValue[-1].isnumeric():
 						ability["keywordValueNumber"] = int(keywordValue.lstrip("+"), 10)
 				if reminderText is not None:
 					ability["reminderText"] = reminderText

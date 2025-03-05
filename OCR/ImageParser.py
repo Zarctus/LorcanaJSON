@@ -145,6 +145,7 @@ class ImageParser:
 			if parseSettings.isItemOverride:
 				isCharacter = False
 			else:
+				isCharacter = True
 		else:
 			isCharacter = False
 			self._logger.debug(f"Subtype is main type ({typesImageText=}), so not storing as subtypes")
@@ -453,7 +454,12 @@ class ImageParser:
 		return thresholdImage
 
 	@staticmethod
-	def _cv2ImageToPillowImage(cv2Image) -> Image.Image:
+	def _cv2ImageToPillowImage(cv2Image):
+		if cv2Image is None or cv2Image.size == 0:
+			# Journal de l'erreur et levée d'une exception plus explicite
+			import logging
+			logging.error("L'image source est vide ou non valide")
+			raise ValueError("L'image source est vide ou non valide. Vérifiez que le fichier image existe et n'est pas corrompu.")
 		return Image.fromarray(cv2.cvtColor(cv2Image, cv2.COLOR_BGR2RGB))
 
 	def _imageToString(self, image: cv2.Mat, isNumeric: bool = False, imageAreaName: str = None) -> str:
@@ -483,11 +489,14 @@ class ImageParser:
 		else:
 			return result
 
-	def _getSubImageAndText(self, cardImage: cv2.Mat, imageArea: ImageArea) -> ImageAndText:
-		subImage = self._getSubImage(cardImage, imageArea)
-		# Numeric reading is more sensitive, so convert to a clearer threshold image
-		if imageArea.isNumeric or imageArea.textColour == ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND:
-			subImage = self._convertToThresholdImage(subImage, imageArea.textColour)
+	def _getSubImageAndText(self, image, imageArea):
+		# Remplacer _getImagePart par _getSubImage
+		subImage = self._getSubImage(image, imageArea)
+		if subImage is None or subImage.size == 0:
+			import logging
+			logging.warning(f"Sous-image extraite vide pour la zone {imageArea.keyName}")
+			# Retourner une ImageAndText avec un texte vide plutôt que de planter
+			return ImageAndText(None, "")
 		return ImageAndText(subImage, self._imageToString(subImage, imageArea.isNumeric, imageArea.keyName))
 
 	@staticmethod
