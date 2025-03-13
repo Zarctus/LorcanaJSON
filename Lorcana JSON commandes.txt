@@ -1,0 +1,42 @@
+# 1. Télécharger les données et images (langue par défaut = anglais)
+python -m main download --loglevel info
+
+# 2. Mettre à jour les liens externes
+python -m main updateExternalLinks --loglevel info
+
+# 3. Générer les fichiers JSON en analysant les cartes
+python -m main parse --loglevel info
+
+# 4. Vérifier les données générées
+python -m main verify --loglevel info
+
+# S'il y a des erreurs, vous pouvez créer/modifier le fichier outputDataCorrections_en.json
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////
+
+# 1. Télécharger les données et images en français
+python -m main download --language fr --loglevel info
+
+# 2. Mettre à jour les liens externes pour le français
+python -m main updateExternalLinks --language fr --loglevel info
+
+# 3. Générer les fichiers JSON en français
+python -m main parse --language fr --loglevel info
+
+# 4. Vérifier les données générées en français
+python -m main verify --language fr --loglevel info
+
+# S'il y a des erreurs, vous pouvez créer/modifier le fichier outputDataCorrections_fr.json
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////
+
+
+git fetch upstream
+git checkout main
+git merge upstream/main
+git push origin main
