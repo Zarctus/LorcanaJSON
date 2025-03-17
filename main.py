@@ -1,4 +1,4 @@
-import argparse, datetime, json, logging, logging.handlers, os, re, sys, time
+import argparse, dataclasses, datetime, json, logging, logging.handlers, os, re, sys, time
 
 import DataFilesGenerator, GlobalConfig, UpdateHandler
 from APIScraping import RavensburgerApiHandler
@@ -34,6 +34,10 @@ if __name__ == '__main__':
 	argumentParser.add_argument("--show", action="store_true", dest="shouldShowSubimages", help="If added, the program shows all the subimages used during parsing. It stops processing until the displayed images are closed, so this is a slow option")
 	argumentParser.add_argument("--threads", type=int, help="Specify how many threads should be used when executing multithreaded tasks. Specify a negative amount to use the maximum number of threads available minus the provided amount. "
 															"Leave empty to have the amount be determined automatically")
+	argumentParser.add_argument("--limitedBuild", action="store_true", help="If added, only the 'allCards.json' file will be generated. No deckfiles, setfiles, etc will be created. This leads to a slightly faster build")
+	argumentParser.add_argument("--useCachedOcr", action="store_true", help="If added, use cached OCR results, instead of parsing the card images, if cached results are available")
+	argumentParser.add_argument("--skipCachingOcr", action="store_true", help="If added, no OCR caching files will be created")
+	argumentParser.add_argument("--rebuildOcrCache", action="store_true", help="Forces the OCR cache to be rebuilt. This overrides 'useCachedOcr' and 'skipCachingOcr'")
 	parsedArguments = argumentParser.parse_args()
 
 	config = {}
@@ -114,40 +118,58 @@ if __name__ == '__main__':
 				except ValueError:
 					raise ValueError(f"Invalid value '{inputCardId}' in the '--cardIds' list, should be numeric")
 
+	if parsedArguments.action in ("parse", "show", "update"):
+		if parsedArguments.action == "show" or parsedArguments.shouldShowSubimages:
+			# If we need to show images, only use one thread, since with multithreading it freezes, and showing images of multiple cards at the same time would get confusing
+			GlobalConfig.threadCount = 1
+			logger.info("Forcing thread count to 1 because that's required to show images")
+		elif config.get("threadCount", 0) or parsedArguments.threads:
+			if parsedArguments.threads:
+				GlobalConfig.threadCount = parsedArguments.threads
+				threadSource = "commandline argument"
+			else:
+				GlobalConfig.threadCount = config["threadCount"]
+				threadSource = "config file"
+			if GlobalConfig.threadCount < 0:
+				logger.info(f"Negative threadcount provided, leaving {GlobalConfig.threadCount} threads unused")
+				GlobalConfig.threadCount = os.cpu_count() - GlobalConfig.threadCount
+			if GlobalConfig.threadCount <= 0:
+				logger.error(f"Invalid thread count {GlobalConfig.threadCount} from {threadSource}, falling back to thread count of 1")
+				GlobalConfig.threadCount = 1
+			else:
+				logger.info(f"Using thread count {GlobalConfig.threadCount} from {threadSource}")
+		else:
+			# Only use half the available cores for threads, because we're also IO- and GIL-bound, so more threads would just slow things down
+			GlobalConfig.threadCount = max(1, os.cpu_count() // 2)
+			if cardIds and len(cardIds) < GlobalConfig.threadCount:
+				# No sense using more threads than we have images to process
+				GlobalConfig.threadCount = len(cardIds)
+				logger.info(f"Using thread count of {GlobalConfig.threadCount} since that's how many cards need to be parsed")
+			else:
+				logger.info(f"Using half the available threads, setting thread count to {GlobalConfig.threadCount:,}")
+		
+		# Cache settings only matter when parsing
+		if parsedArguments.rebuildOcrCache:
+			logger.info("Setting OCR cache to be rebuilt")
+			GlobalConfig.useCachedOcr = False
+			GlobalConfig.skipCachingOcr = False
+		else:
+			if parsedArguments.useCachedOcr or config.get("useCachedOcr", False):
+				logger.info("Using OCR cache")
+				GlobalConfig.useCachedOcr = True
+			if parsedArguments.skipCachingOcr or config.get("skipCachingOcr", False):
+				logger.info("Skipping creating OCR cache")
+				GlobalConfig.skipCachingOcr = True
+		# Only set 'limitedBuild' if we're actually building
+		if parsedArguments.limitedBuild:
+			logger.info("Running a limited build. Setfiles, deckfiles etc won't be generated")
+			GlobalConfig.limitedBuild = True
+
 	totalStartTime = time.perf_counter()
 	for language in parsedArguments.language:
 		GlobalConfig.language = Language.getLanguageByCode(language)
 		GlobalConfig.translation = Translations.getForLanguage(GlobalConfig.language)
 		_infoOrPrint(logger, f"Starting action '{parsedArguments.action}' for language '{GlobalConfig.language.englishName}' at {datetime.datetime.now()}")
-
-		if parsedArguments.action in ("parse", "show", "update"):
-			if parsedArguments.action == "show" or parsedArguments.shouldShowSubimages:
-				# If we need to show images, only use one thread, since with multithreading it freezes, and showing images of multiple cards at the same time would get confusing
-				GlobalConfig.threadCount = 1
-				logger.info("Forcing thread count to 1 because that's required to show images")
-			elif config.get("threadCount", 0) or parsedArguments.threads:
-				if parsedArguments.threads:
-					GlobalConfig.threadCount = parsedArguments.threads
-					threadSource = "commandline argument"
-				else:
-					GlobalConfig.threadCount = config["threadCount"]
-					threadSource = "config file"
-				if GlobalConfig.threadCount < 0:
-					GlobalConfig.threadCount = os.cpu_count() + GlobalConfig.threadCount
-				if GlobalConfig.threadCount <= 0:
-					logger.error(f"Invalid thread count {GlobalConfig.threadCount} from {threadSource}, falling back to thread count of 1")
-					GlobalConfig.threadCount = 1
-				else:
-					logger.info(f"Using thread count {GlobalConfig.threadCount} from {threadSource}")
-			else:
-				# Only use half the available cores for threads, because we're also IO- and GIL-bound, so more threads would just slow things down
-				GlobalConfig.threadCount = max(1, os.cpu_count() // 2)
-				if cardIds and len(cardIds) < GlobalConfig.threadCount:
-					# No sense using more threads than we have images to process
-					GlobalConfig.threadCount = len(cardIds)
-					logger.info(f"Using thread count of {GlobalConfig.threadCount} since that's how many cards need to be parsed")
-				else:
-					logger.info(f"Using half the available threads, setting thread count to {GlobalConfig.threadCount:,}")
 
 		startTime = time.perf_counter()
 		if parsedArguments.action == "check":
@@ -204,16 +226,16 @@ if __name__ == '__main__':
 				if not os.path.isfile(cardPath):
 					print(f"ERROR: Unable to find local image for card ID {cardId}. Please run the 'download' command first, and make sure you didn't make a typo in the ID")
 					continue
-				parsedImageAndTextData = ImageParser().getImageAndTextDataFromImage(cardId, baseImagePathForCard, True, showImage=True)
+				ocrResult = ImageParser().getImageAndTextDataFromImage(cardId, baseImagePathForCard, True, showImage=True)
 				print(f"Card ID {cardId}")
-				for fieldName, fieldResult in parsedImageAndTextData.items():
+				for fieldName, fieldResult in dataclasses.asdict(ocrResult).items():
 					if fieldResult is None:
 						print(f"{fieldName} is empty")
 					elif isinstance(fieldResult, list):
 						for fieldResultIndex, fieldResultItem in enumerate(fieldResult):
-							print(f"{fieldName} index {fieldResultIndex}: {fieldResultItem.text!r}")
+							print(f"{fieldName} index {fieldResultIndex}: {fieldResultItem!r}")
 					else:
-						print(f"{fieldName}: {fieldResult.text!r}")
+						print(f"{fieldName}: {fieldResult!r}")
 				print("")
 		elif parsedArguments.action == "verify":
 			Verifier.compareInputToOutput(cardIds)

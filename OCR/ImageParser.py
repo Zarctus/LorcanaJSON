@@ -7,6 +7,7 @@ from PIL import Image
 
 import GlobalConfig
 from OCR import ImageArea, ParseSettings
+from OCR.OcrResult import OcrResult
 from util import IdentifierParser, LorcanaSymbols
 
 
@@ -40,15 +41,15 @@ class ImageParser:
 		self._tesseractApi.SetVariable("tessedit_fix_hyphens", "0")
 		self._tesseractApi.SetVariable("crunch_early_convert_bad_unlv_chs", "1")
 
-	def getImageAndTextDataFromImage(self, cardId: int, baseImagePath: str, parseFully: bool, parsedIdentifier: IdentifierParser.Identifier = None, isLocation: bool = None, hasCardText: bool = None, hasFlavorText: bool = None,
-									 isEnchanted: bool = None, showImage: bool = False) -> Dict[str, Union[None, ImageAndText, List[ImageAndText]]]:
+	def getImageAndTextDataFromImage(self, cardId: int, baseImagePath: str, parseFully: bool, parsedIdentifier: IdentifierParser.Identifier = None, cardType: str = None, hasCardText: bool = None, hasFlavorText: bool = None,
+									 isEnchanted: bool = None, showImage: bool = False) -> OcrResult:
 		startTime = time.perf_counter()
 		result: Dict[str, Union[None, ImageAndText, List[ImageAndText]]] = {
 			"flavorText": None,
 			"abilityLabels": [],
 			"abilityTexts": [],
 			"remainingText": None,
-			"subtypesText": [],
+			"subtypesText": None,
 			"artist": None
 		}
 		if parseFully:
@@ -95,10 +96,12 @@ class ImageParser:
 
 		if parseSettings and parseSettings.isLocationOverride is not None:
 			isLocation = parseSettings.isLocationOverride
-		elif isLocation is None:
+		elif cardType is None:
 			# Figure out whether this is a Location card or not. We need to do this as soon as possible, because Location cards need to be rotated
 			# Location cards, both Enchanted and not Enchanted, have a thick black border at their bottom, so the right side of a non-rotated image, thicker than a non-Enchanted non-Location card. Check for that
 			isLocation = self._isImageBlack(self._getSubImage(cardImage, ImageArea.IS_LOCATION_CHECK))
+		else:
+			isLocation = cardType == GlobalConfig.translation.Location
 
 		if isLocation:
 			# Location cards are horizontal, so the image should be rotated for proper OCR
@@ -121,6 +124,9 @@ class ImageParser:
 		if parseSettings is None:
 			parseSettings = ParseSettings.getParseSettings(cardId, parsedIdentifier, isEnchanted)
 
+		isCharacter = None
+		if cardType:
+			isCharacter = cardType == GlobalConfig.translation.Character
 		# First determine the card (sub)type
 		typesImageArea = (parseSettings.locationCardLayout if isLocation else parseSettings.cardLayout).types
 		typesImage = self._getSubImage(greyCardImage, typesImageArea)
@@ -133,21 +139,16 @@ class ImageParser:
 		if typesImageText not in self.nonCharacterTypes:
 			# The type separator character is always the same, but often gets interpreted wrong; fix that
 			if " " in typesImageText:
-				typesImageTextParts = typesImageText.split(" ")
-				for typesPartIndex in range(len(typesImageTextParts) - 1, -1, -1):
-					typesPart = typesImageTextParts[typesPartIndex]
-					if len(typesPart) < 3:
-						self._logger.info(f"Removing type '{typesPart}' from types text, because it's too short")
-						del typesImageTextParts[typesPartIndex]
-				typesImageText = f" {LorcanaSymbols.SEPARATOR} ".join(typesImageTextParts)
+				typesImageText = re.sub(r" (\S )?", f" {LorcanaSymbols.SEPARATOR} ", typesImageText)
 			result["subtypesText"] = ImageAndText(typesImage, typesImageText)
 			self._logger.debug(f"{typesImageText=}")
 			if parseSettings.isItemOverride:
 				isCharacter = False
-			else:
+			elif isCharacter is None:
 				isCharacter = not isLocation and typesImageText not in self.nonCharacterTypes and typesImageText.split(" ", 1)[0] not in self.nonCharacterTypes
 		else:
-			isCharacter = False
+			if isCharacter is None:
+				isCharacter = False
 			self._logger.debug(f"Subtype is main type ({typesImageText=}), so not storing as subtypes")
 
 		if isCharacter:
@@ -441,8 +442,20 @@ class ImageParser:
 					cv2.imshow("Card Willpower", result["willpower"].image)
 			cv2.waitKey(0)
 			cv2.destroyAllWindows()
-		# Done!
-		return result
+		# Done with parsing, build result object
+		ocrResult = OcrResult([iat.text for iat in result["abilityLabels"]], [iat.text for iat in result["abilityTexts"]], result["artist"].text, result["flavorText"].text if result.get("flavorText", None) else None,
+							  result["remainingText"].text if result.get("remainingText", None) else None, result["subtypesText"].text if result["subtypesText"] else None)
+		# Identifier might be set by 'parseFully' or by a specific boolean
+		if result.get("identifier", None):
+			ocrResult.identifier = result["identifier"].text
+		if parseFully:
+			ocrResult.cost = result["cost"].text
+			ocrResult.moveCost = result["moveCost"].text if result["moveCost"] else None
+			ocrResult.name = result["name"].text
+			ocrResult.strength = result["strength"].text if result["strength"] else None
+			ocrResult.version = result["version"].text if result["version"] else None
+			ocrResult.willpower = result["willpower"].text if result["willpower"] else None
+		return ocrResult
 
 	@staticmethod
 	def _getSubImage(image, imageArea: ImageArea.ImageArea):
@@ -485,9 +498,7 @@ class ImageParser:
 				return "-1"
 			else:
 				self._logger.info(f"Corrected non-numeric result '{originalResult}' to '{result}' for image area '{imageAreaName}'")
-				return result
-		else:
-			return result
+		return result
 
 	def _getSubImageAndText(self, image, imageArea):
 		# Remplacer _getImagePart par _getSubImage
