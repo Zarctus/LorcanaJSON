@@ -48,6 +48,9 @@ def correctText(cardText: str) -> str:
 	cardText = re.sub(r"(?<=[”’)])\s.$", "", cardText, re.MULTILINE)
 	# The 'exert' symbol often gets mistaken for a @ or G, correct that
 	cardText = re.sub(r"(?<![0-9s])(^|[\"“„ ])[(@Gg©€]{1,3}9?([ ,])", fr"\1{LorcanaSymbols.EXERT}\2", cardText, re.MULTILINE)
+	cardText = re.sub(r"^[(&] ?[-—] ", f"{LorcanaSymbols.EXERT} — ", cardText)
+	# Some cards have a bulleted list, replace the start character with the separator symbol
+	cardText = re.sub(r"^[-+*«»¢,‚](?= \w{2,} \w+)", LorcanaSymbols.SEPARATOR, cardText, flags=re.MULTILINE)
 	# Other weird symbols are probably strength symbols
 	cardText = re.sub(r"(?<!\d)[&@©%$*<>{}€£¥Ÿ]{1,2}[0-9yF+*%“]*", LorcanaSymbols.STRENGTH, cardText)
 	cardText = re.sub(r"(?<=\d )[CÇD]\b", LorcanaSymbols.STRENGTH, cardText)
@@ -57,13 +60,13 @@ def correctText(cardText: str) -> str:
 	cardText = re.sub(r" [‘‘;]$", "", cardText, flags=re.MULTILINE)
 	# The Lore symbol often gets mistaken for a 4, correct hat
 	cardText = re.sub(r"(\d) ?4", fr"\1 {LorcanaSymbols.LORE}", cardText)
-	cardText = re.sub(r"^[-+«»¢,‚](?= \w{2,} \w+)", LorcanaSymbols.SEPARATOR, cardText, flags=re.MULTILINE)
 	# It sometimes misses the strength symbol between a number and the closing bracket
 	cardText = re.sub(r"^\+(\d)(\.\)?)$", f"+\\1 {LorcanaSymbols.STRENGTH}\\2", cardText, flags=re.MULTILINE)
 	cardText = re.sub(r"^([-+]\d)0(\.\)?)$", fr"\1 {LorcanaSymbols.STRENGTH}\2", cardText, flags=re.MULTILINE)
 	# A 7 often gets mistaken for a /, correct that
 	cardText = cardText.replace(" / ", " 7 ")
 	cardText = re.sub(f"{LorcanaSymbols.INK}([-—])", fr"{LorcanaSymbols.INK} \1", cardText)
+	cardText = re.sub(r"^ ?[-—](?= [A-Z])", f"{LorcanaSymbols.INK} —", cardText)
 	# Negative numbers are always followed by a strength symbol, correct that
 	cardText = re.sub(fr"(?<= )(-\d)( [^{LorcanaSymbols.STRENGTH}{LorcanaSymbols.LORE}a-z .]{{1,2}})?( \w|$)", fr"\1 {LorcanaSymbols.STRENGTH}\3", cardText, flags=re.MULTILINE)
 	# Two numbers in a row never happens, or a digit followed by a loose capital lettter. The latter should probably be a Strength symbol
@@ -972,6 +975,8 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 			sevenDwarvesCheckTypes = ("Sept", "Nains")
 		elif GlobalConfig.language == Language.GERMAN:
 			sevenDwarvesCheckTypes = ("Sieben", "Zwerge")
+		elif GlobalConfig.language == Language.ITALIAN:
+			sevenDwarvesCheckTypes = ("Sette", "Nani")
 		if sevenDwarvesCheckTypes and sevenDwarvesCheckTypes[0] in subtypes and sevenDwarvesCheckTypes[1] in subtypes:
 			subtypes.remove(sevenDwarvesCheckTypes[1])
 			subtypes[subtypes.index(sevenDwarvesCheckTypes[0])] = " ".join(sevenDwarvesCheckTypes)
@@ -1028,6 +1033,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 		externalLinksCorrection = cardDataCorrections.pop("externalLinks", None)
 		fullTextCorrection = cardDataCorrections.pop("fullText", None)
 		moveAbilityAtIndexToIndex = cardDataCorrections.pop("_moveAbilityAtIndexToIndex", None)
+		splitAbilityNameAtIndex = cardDataCorrections.pop("_splitAbilityNameAtIndex", None)
 		for fieldName, correction in cardDataCorrections.items():
 			if len(correction) > 2:
 				for correctionIndex in range(0, len(correction), 2):
@@ -1052,6 +1058,11 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 					firstEffect, secondEffect = outputCard["effects"][effectIndex].rsplit("\n\n", 1)
 					outputCard["effects"][effectIndex] = firstEffect
 					outputCard["effects"].insert(effectIndex + 1, secondEffect)
+		# Sometimes the ability name doesn't get recognised properly during fallback parsing, so there's a manual correction for it
+		if splitAbilityNameAtIndex:
+			ability = outputCard["abilities"][splitAbilityNameAtIndex[0]]
+			ability["name"], ability["effect"] = re.split(splitAbilityNameAtIndex[1], ability["effect"], maxSplit=1)
+			_logger.info(f"Split ability name and effect at index {splitAbilityNameAtIndex[0]} into name {ability['name']!r} and effect {ability['effect']!r}")
 		# Do this after the general corrections since one of those might add or split an effect
 		if effectAtIndexIsAbility != -1:
 			if "effects" not in outputCard:
