@@ -715,7 +715,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 	else:
 		outputCard["fullIdentifier"] = str(parsedIdentifier)
 	if GlobalConfig.language.uppercaseCode not in outputCard["fullIdentifier"]:
-		_logger.warning(f"Card ID {outputCard['id']} ({outputCard['fullIdentifier']}) is not in current language '{GlobalConfig.language.englishName}', skipping")
+		_logger.info(f"Card ID {outputCard['id']} ({outputCard['fullIdentifier']}) is not in current language '{GlobalConfig.language.englishName}', skipping")
 		return None
 	# Set the grouping ('P1', 'D23', etc) for promo cards
 	if parsedIdentifier and parsedIdentifier.isPromo():
@@ -730,10 +730,10 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 	outputCard["setCode"] = parsedIdentifier.setCode
 
 	# Always get the artist from the parsed data, since in the input data it often only lists the first artist when there's multiple, so it's not reliable
-	outputCard["artistsText"] = ocrResult.artistsText.lstrip(". ").rstrip("/ ").replace("’", "'").replace("|", "l")
+	outputCard["artistsText"] = ocrResult.artistsText.lstrip(". ").replace("’", "'").replace("|", "l").replace("NM", "M")
 	oldArtistsText = outputCard["artistsText"]
 	outputCard["artistsText"] = re.sub(r"^[l[]", "I", outputCard["artistsText"])
-	while re.search(r" [a-z0-9ÿI|(\\_+.,;”—-]{1,2}$", outputCard["artistsText"]):
+	while re.search(r" [a-z0-9ÿI|(\\/_+.,;”—-]{1,2}$", outputCard["artistsText"]):
 		outputCard["artistsText"] = outputCard["artistsText"].rsplit(" ", 1)[0]
 	outputCard["artistsText"] = outputCard["artistsText"].rstrip(".")
 	if "Haggman-Sund" in outputCard["artistsText"]:
@@ -992,6 +992,9 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 			# Remove short subtypes, probably erroneous
 			elif len(subtype) < (4 if GlobalConfig.language == Language.ENGLISH else 3):
 				_logger.debug(f"Removing subtype '{subtype}', too short")
+				subtypes.pop(subtypeIndex)
+			elif not re.search("[aeiouAEIOU]", subtype):
+				_logger.debug(f"Removing subtype '{subtype}', no vowels so it's probably invalid")
 				subtypes.pop(subtypeIndex)
 		# Non-character cards have their main type as their (first) subtype, remove those
 		if subtypes and (subtypes[0] == GlobalConfig.translation.Action or subtypes[0] == GlobalConfig.translation.Item or subtypes[0] == GlobalConfig.translation.Location):
