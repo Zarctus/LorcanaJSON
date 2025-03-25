@@ -480,7 +480,6 @@ def createOutputFiles(onlyParseIds: Union[None, List[int]] = None, shouldShowIma
 		_threadingLocalStorage.externalIdsHandler = ExternalLinksHandler()
 
 	# Parse the cards we need to parse
-	languageCodeToCheck = GlobalConfig.language.code.upper()
 	cardToStoryParser = StoryParser()
 	with multiprocessing.pool.ThreadPool(GlobalConfig.threadCount, initializer=initThread) as pool:
 		results = []
@@ -492,7 +491,7 @@ def createOutputFiles(onlyParseIds: Union[None, List[int]] = None, shouldShowIma
 				cardId = inputCard["culture_invariant_id"]
 				if cardId in cardIdsStored:
 					continue
-				elif languageCodeToCheck not in inputCard["card_identifier"]:
+				elif GlobalConfig.language.uppercaseCode not in inputCard["card_identifier"]:
 					_logger.debug(f"Skipping card with ID {inputCard['culture_invariant_id']} because it's not in the requested language")
 					continue
 				elif onlyParseIds and cardId not in onlyParseIds:
@@ -736,8 +735,8 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 	while re.search(r" [a-z0-9ÿI|(\\/_+.,;”—-]{1,2}$", outputCard["artistsText"]):
 		outputCard["artistsText"] = outputCard["artistsText"].rsplit(" ", 1)[0]
 	outputCard["artistsText"] = outputCard["artistsText"].rstrip(".")
-	if "Haggman-Sund" in outputCard["artistsText"]:
-		outputCard["artistsText"] = outputCard["artistsText"].replace("Haggman-Sund", "Häggman-Sund")
+	if "ggman-Sund" in outputCard["artistsText"]:
+		outputCard["artistsText"] = re.sub("H[^ä]ggman-Sund", "Häggman-Sund", outputCard["artistsText"])
 	elif "Toziim" in outputCard["artistsText"] or "Tôzüm" in outputCard["artistsText"] or "Toztim" in outputCard["artistsText"]:
 		outputCard["artistsText"] = re.sub(r"\bT\w+z\w+m\b", "Tözüm", outputCard["artistsText"])
 	elif re.match(r"Jo[^ã]o\b", outputCard["artistsText"]):

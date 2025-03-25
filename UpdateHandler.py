@@ -147,7 +147,7 @@ def createOutputIfNeeded(onlyCreateOnNewCards: bool, cardFieldsToIgnore: List[st
 	cardCatalog = RavensburgerApiHandler.retrieveCardCatalog()
 	addedCards, cardChanges, possibleImageChanges, unlistedCards = checkForNewCardData(cardCatalog, cardFieldsToIgnore, includeCardChanges=not onlyCreateOnNewCards)
 	if not addedCards and not cardChanges and not possibleImageChanges:
-		_logger.info("No catalog updates, not running output generator")
+		_logger.info(f"No catalog updates, not running output generator, {len(unlistedCards):,} unlisted cards found")
 		return
 	_logger.info(f"Found {len(addedCards):,} new cards, {len(cardChanges):,} changed cards, and {len(possibleImageChanges):,} possible image changes")
 	idsToParse = [entry[0] for entry in addedCards]
@@ -155,6 +155,9 @@ def createOutputIfNeeded(onlyCreateOnNewCards: bool, cardFieldsToIgnore: List[st
 	# Not all possible image changes are actual changes, update only the changed images
 	actualImageChanges = RavensburgerApiHandler.downloadImagesIfUpdated(possibleImageChanges)
 	_logger.info(f"{len(actualImageChanges):,} actual image changes")
+	if actualImageChanges:
+		GlobalConfig.useCachedOcr = False
+		_logger.info("Image(s) changed, skipping using OCR cache")
 	idsToParse.extend(actualImageChanges)
 	RavensburgerApiHandler.saveCardCatalog(cardCatalog)
 	RavensburgerApiHandler.downloadImages()
