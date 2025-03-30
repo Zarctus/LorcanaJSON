@@ -14,7 +14,7 @@ from util import IdentifierParser, Language, LorcanaSymbols
 _logger = logging.getLogger("LorcanaJSON")
 FORMAT_VERSION = "2.1.1"
 _CARD_CODE_LOOKUP = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-_KEYWORD_REGEX = re.compile(r"(?:^|\n)([A-ZÀ][^.]+)(?= \([A-Z])")
+_KEYWORD_REGEX = re.compile(r"(?:^|\n)([A-ZÀ][^.]+)(?=\s\([A-Z])")
 _KEYWORD_REGEX_WITHOUT_REMINDER = re.compile(r"^[A-Z][a-z]{2,}( \d)?$")
 _ABILITY_TYPE_CORRECTION_FIELD_TO_ABILITY_TYPE: Dict[str, str] = {"_forceAbilityIndexToActivated": "activated", "_forceAbilityIndexToKeyword": "keyword", "_forceAbilityIndexToStatic": "static", "_forceAbilityIndexToTriggered": "triggered"}
 # The card parser is run in threads, and each thread needs to initialize its own ImageParser (otherwise weird errors happen in Tesseract)
@@ -48,7 +48,7 @@ def correctText(cardText: str) -> str:
 	cardText = re.sub(r"(?<=[”’)])\s.$", "", cardText, re.MULTILINE)
 	# The 'exert' symbol often gets mistaken for a @ or G, correct that
 	cardText = re.sub(r"(?<![0-9s])(^|[\"“„ ])[(@Gg©€]{1,3}9?([ ,])", fr"\1{LorcanaSymbols.EXERT}\2", cardText, re.MULTILINE)
-	cardText = re.sub(r"^[(&] ?[-—] ", f"{LorcanaSymbols.EXERT} — ", cardText)
+	cardText = re.sub(r"^([(&f]+À?)? ?[-—] ", f"{LorcanaSymbols.EXERT} — ", cardText)
 	# Some cards have a bulleted list, replace the start character with the separator symbol
 	cardText = re.sub(r"^[-+*«»¢,‚](?= \w{2,} \w+)", LorcanaSymbols.SEPARATOR, cardText, flags=re.MULTILINE)
 	# Other weird symbols are probably strength symbols
@@ -213,6 +213,8 @@ def correctPunctuation(textToCorrect: str) -> str:
 		correctedText = re.sub(r"([\xa0 ]?\.[\xa0 ]?){3}", "..." if GlobalConfig.language == Language.ENGLISH else "…", correctedText)
 	if "…" in correctedText:
 		correctedText = re.sub(r"\.*…( ?\.+)?", "…", correctedText)
+	if correctedText.startswith("‘"):
+		correctedText = "“" + correctedText[1:]
 	if correctedText.endswith(","):
 		correctedText = correctedText[:-1] + "."
 	if GlobalConfig.language == Language.GERMAN:
@@ -675,18 +677,8 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 		parsedIdentifier = IdentifierParser.parseIdentifier(inputCard["card_identifier"])
 
 	ocrResult: OcrResult = None
-	cachedCardOcrPath = os.path.join("output", "generated", "cachedOcr", GlobalConfig.language.code, f"{outputCard['id']}.cachedOcr")
 	if GlobalConfig.useCachedOcr:
-		if os.path.isfile(cachedCardOcrPath):
-			try:
-				with open(cachedCardOcrPath, "rb") as cachedCardOcrFile:
-					ocrResult = pickle.load(cachedCardOcrFile)
-			except Exception as e:
-				_logger.error(f"Unable to load cached OCR result for card {_createCardIdentifier(inputCard)}, recreating it")
-			else:
-				_logger.debug(f"Loaded cached OCR result for card {_createCardIdentifier(inputCard)}")
-		else:
-			_logger.info(f"Cached OCR result doesn't exist for card {_createCardIdentifier(inputCard)}, creating it")
+		ocrResult = OcrCacheHandler.getCachedOcrResult(outputCard["id"])
 
 	if ocrResult is None:
 		ocrResult = _threadingLocalStorage.imageParser.getImageAndTextDataFromImage(
@@ -701,9 +693,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 			showImage=shouldShowImage
 		)
 		if not GlobalConfig.skipCachingOcr:
-			os.makedirs(os.path.dirname(cachedCardOcrPath), exist_ok=True)
-			with open(cachedCardOcrPath, "wb") as cachedCardOcrFile:
-				pickle.dump(ocrResult, cachedCardOcrFile)
+			OcrCacheHandler.storeOcrResult(outputCard["id"], ocrResult)
 
 	if ocrResult.identifier and (ocrResult.identifier.startswith("0") or "TFC" in ocrResult.identifier or GlobalConfig.language.uppercaseCode not in ocrResult.identifier):
 		outputCard["fullIdentifier"] = re.sub(fr" ?\W (?!$)", f" {LorcanaSymbols.SEPARATOR} ", ocrResult.identifier)

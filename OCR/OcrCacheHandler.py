@@ -1,5 +1,9 @@
-import hashlib, json, logging, os, shutil
+import hashlib, json, logging, os, pickle, shutil
 from typing import Dict, Union
+
+import GlobalConfig
+from OCR.OcrResult import OcrResult
+
 
 _logger = logging.getLogger("LorcanaJSON")
 _cachePath = os.path.join("output", "generated", "cachedOcr")
@@ -18,6 +22,9 @@ def _buildFileHashes() -> Dict[str, str]:
 		with open(cacheRelevantFilePath, "rb") as cacheRelevantFile:
 			currentHashes[cacheRelevantFilePath] = hashlib.file_digest(cacheRelevantFile, "md5").hexdigest()
 	return currentHashes
+
+def _buildCachedOcrResultPath(cardId: int):
+	return os.path.join(_cachePath, GlobalConfig.language.code, f"{cardId}.cachedOcr")
 
 def validateOcrCache() -> bool:
 	"""
@@ -61,12 +68,36 @@ def clearOcrCache(fileHashes: Union[None, Dict[str, str]] = None):
 	"""
 	if fileHashes is None:
 		fileHashes = _buildFileHashes()
-	with os.scandir(_cachePath) as cacheFolderIterator:
-		for ocrCacheEntry in cacheFolderIterator:
-			if ocrCacheEntry.is_dir():
-				shutil.rmtree(ocrCacheEntry.path)
-			else:
-				os.remove(ocrCacheEntry.path)
+	if os.path.isdir(_cachePath):
+		with os.scandir(_cachePath) as cacheFolderIterator:
+			for ocrCacheEntry in cacheFolderIterator:
+				if ocrCacheEntry.is_dir():
+					shutil.rmtree(ocrCacheEntry.path)
+				else:
+					os.remove(ocrCacheEntry.path)
+	else:
+		os.makedirs(_cachePath, exist_ok=True)
 	# Create the hash file, so subsequent runs don't keep clearing the cache
 	with open(_cacheHashesFilePath, "w", encoding="utf-8") as cacheHashesFile:
 		json.dump(fileHashes, cacheHashesFile)
+
+def getCachedOcrResult(cardId: int) -> Union[OcrResult, None]:
+	"""
+	Retrieve the OCR result for the provided card ID from the OCR cache, if it exists
+	:param cardId: The ID of the card to get the cached OCR result for
+	:return: The cached OCR result for the provided card ID, or None if it couldn't be found or loaded
+	"""
+	cachedOcrResultPath = _buildCachedOcrResultPath(cardId)
+	if os.path.isfile(cachedOcrResultPath):
+		try:
+			with open(cachedOcrResultPath, "rb") as cachedCardOcrFile:
+				return pickle.load(cachedCardOcrFile)
+		except Exception as e:
+			_logger.error(f"Unable to load cached OCR result for card ID {cardId}")
+	return None
+
+def storeOcrResult(cardId: int, ocrResult: OcrResult):
+	cachedOcrResultPath = _buildCachedOcrResultPath(cardId)
+	os.makedirs(os.path.dirname(cachedOcrResultPath), exist_ok=True)
+	with open(cachedOcrResultPath, "wb") as cachedOcrResultFile:
+		pickle.dump(ocrResult, cachedOcrResultFile)
