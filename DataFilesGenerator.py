@@ -1,11 +1,14 @@
 import copy
 import datetime, hashlib, json, logging, multiprocessing.pool, os, re, threading, time, zipfile
 import pickle
-from typing import Dict, List, Optional, Union
+import threading
+from typing import Dict, List, Optional, Tuple, Union
 
 import GlobalConfig
 from APIScraping.ExternalLinksHandler import ExternalLinksHandler
-from OCR import ImageParser
+# Importer correctement les modules et classes
+from OCR.ImageParser import ImageParser  # Importer la classe directement
+import OCR.OcrCacheHandler as OcrCacheHandler
 from OCR.OcrResult import OcrResult
 from output.StoryParser import StoryParser
 from util import IdentifierParser, Language, LorcanaSymbols
@@ -20,8 +23,8 @@ _ABILITY_TYPE_CORRECTION_FIELD_TO_ABILITY_TYPE: Dict[str, str] = {"_forceAbility
 # The card parser is run in threads, and each thread needs to initialize its own ImageParser (otherwise weird errors happen in Tesseract)
 # Store each initialized ImageParser in its own thread storage
 _threadingLocalStorage = threading.local()
-_threadingLocalStorage.imageParser: ImageParser.ImageParser = None
-_threadingLocalStorage.externalIdsHandler: ExternalLinksHandler = None
+_threadingLocalStorage.imageParser = None  # Simplement None, pas besoin d'annotation de type ici
+_threadingLocalStorage.externalIdsHandler = None
 
 def correctText(cardText: str) -> str:
 	"""
@@ -478,7 +481,7 @@ def createOutputFiles(onlyParseIds: Union[None, List[int]] = None, shouldShowIma
 			_logger.warning("ID list provided but previously generated file doesn't exist. Generating all card data")
 
 	def initThread():
-		_threadingLocalStorage.imageParser = ImageParser.ImageParser()
+		_threadingLocalStorage.imageParser = ImageParser()
 		_threadingLocalStorage.externalIdsHandler = ExternalLinksHandler()
 
 	# Parse the cards we need to parse
