@@ -6,16 +6,14 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import GlobalConfig
 from APIScraping.ExternalLinksHandler import ExternalLinksHandler
-# Importer correctement les modules et classes
-from OCR.ImageParser import ImageParser  # Importer la classe directement
-import OCR.OcrCacheHandler as OcrCacheHandler
+from OCR import ImageParser, OcrCacheHandler
 from OCR.OcrResult import OcrResult
 from output.StoryParser import StoryParser
 from util import IdentifierParser, Language, LorcanaSymbols
 
 
 _logger = logging.getLogger("LorcanaJSON")
-FORMAT_VERSION = "2.1.1"
+FORMAT_VERSION = "2.1.2"
 _CARD_CODE_LOOKUP = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 _KEYWORD_REGEX = re.compile(r"(?:^|\n)([A-ZÀ][^.]+)(?=\s\([A-Z])")
 _KEYWORD_REGEX_WITHOUT_REMINDER = re.compile(r"^[A-Z][a-z]{2,}( \d)?$")
@@ -40,9 +38,9 @@ def correctText(cardText: str) -> str:
 	# Simplify quote mark if it's used in a contraction
 	cardText = re.sub(r"(?<=\w)[‘’](?=\w)", "'", cardText)
 	# The 'Exert' symbol often gets read as a 6
-	cardText = re.sub(r"^6 ?,", f"{LorcanaSymbols.EXERT},", cardText, flags=re.MULTILINE)
+	cardText = re.sub(r"^(6|fà)? ?,", f"{LorcanaSymbols.EXERT},", cardText)
 	# There's usually an ink symbol between a number and a dash
-	cardText = re.sub(r"(^| )(\d) ?[0OQ©]{,2}( ?[-—]|,)", fr"\1\2 {LorcanaSymbols.INK}\3", cardText, re.MULTILINE)
+	cardText = re.sub(r"(^| )(\d) ?[0OÒQ©]{,2}( ?[-—]|,)", fr"\1\2 {LorcanaSymbols.INK}\3", cardText, re.MULTILINE)
 	# Normally a closing quote mark should be preceded by a period, except mid-sentence
 	cardText = re.sub(r"([^.,'!?’])”(?!,| \w)", "\\1.”", cardText)
 	# An opening bracket shouldn't have a space after it
@@ -51,18 +49,18 @@ def correctText(cardText: str) -> str:
 	cardText = re.sub(r"(?<=[”’)])\s.$", "", cardText, re.MULTILINE)
 	# The 'exert' symbol often gets mistaken for a @ or G, correct that
 	cardText = re.sub(r"(?<![0-9s])(^|[\"“„ ])[(@Gg©€]{1,3}9?([ ,])", fr"\1{LorcanaSymbols.EXERT}\2", cardText, re.MULTILINE)
-	cardText = re.sub(r"^([(&f]+À?)? ?[-—] ", f"{LorcanaSymbols.EXERT} — ", cardText)
+	cardText = re.sub(r"^([(&f]+À?|fà)? ?[-—] ", f"{LorcanaSymbols.EXERT} — ", cardText)
 	# Some cards have a bulleted list, replace the start character with the separator symbol
 	cardText = re.sub(r"^[-+*«»¢,‚](?= \w{2,} \w+)", LorcanaSymbols.SEPARATOR, cardText, flags=re.MULTILINE)
 	# Other weird symbols are probably strength symbols
-	cardText = re.sub(r"(?<!\d)[&@©%$*<>{}€£¥Ÿ]{1,2}[0-9yF+*%“]*", LorcanaSymbols.STRENGTH, cardText)
-	cardText = re.sub(r"(?<=\d )[CÇD]\b", LorcanaSymbols.STRENGTH, cardText)
+	cardText = re.sub(r"(?<!\d)X?[&@©%$*<>{}€£¥Ÿ]{1,2}[0-9yFX+*%#“»]*", LorcanaSymbols.STRENGTH, cardText)
+	cardText = re.sub(r"(?<=\d )[CÇDIQX]{1,2}\b", LorcanaSymbols.STRENGTH, cardText)
 	# Make sure there's a period before a closing bracket
 	cardText = re.sub(fr"([^.,'!?’{LorcanaSymbols.STRENGTH}])\)", r"\1.)", cardText)
 	# Strip erroneously detected characters from the end
 	cardText = re.sub(r" [‘‘;]$", "", cardText, flags=re.MULTILINE)
-	# The Lore symbol often gets mistaken for a 4, correct hat
-	cardText = re.sub(r"(\d) ?4", fr"\1 {LorcanaSymbols.LORE}", cardText)
+	# The Lore symbol often gets mistaken for a 4 or è, correct hat
+	cardText = re.sub(r"(\d) ?[4è](?=[ \n.])", fr"\1 {LorcanaSymbols.LORE}", cardText)
 	# It sometimes misses the strength symbol between a number and the closing bracket
 	cardText = re.sub(r"^\+(\d)(\.\)?)$", f"+\\1 {LorcanaSymbols.STRENGTH}\\2", cardText, flags=re.MULTILINE)
 	cardText = re.sub(r"^([-+]\d)0(\.\)?)$", fr"\1 {LorcanaSymbols.STRENGTH}\2", cardText, flags=re.MULTILINE)
@@ -73,7 +71,7 @@ def correctText(cardText: str) -> str:
 	# Negative numbers are always followed by a strength symbol, correct that
 	cardText = re.sub(fr"(?<= )(-\d)( [^{LorcanaSymbols.STRENGTH}{LorcanaSymbols.LORE}a-z .]{{1,2}})?( \w|$)", fr"\1 {LorcanaSymbols.STRENGTH}\3", cardText, flags=re.MULTILINE)
 	# Two numbers in a row never happens, or a digit followed by a loose capital lettter. The latter should probably be a Strength symbol
-	cardText = re.sub(r"(\d) [0-9DGOQ]\b", f"\\1 {LorcanaSymbols.STRENGTH}", cardText)
+	cardText = re.sub(r"(\d) [0-9DGOQ]{1,2}[%{}]?(?=\W)", f"\\1 {LorcanaSymbols.STRENGTH}", cardText)
 	# Letters after a quotemark at the start of a line should be capitalized
 	cardText = re.sub("^“[a-z]", lambda m: m.group(0).upper(), cardText, flags=re.MULTILINE)
 	if re.search(" [^?!.…”“0-9]$", cardText):
@@ -227,6 +225,13 @@ def correctPunctuation(textToCorrect: str) -> str:
 			correctedText = re.sub(r"…(\w)", r"… \1", correctedText)
 		# Fix closing quote mark
 		correctedText = correctedText.replace("”", "“")
+	elif GlobalConfig.language == Language.ITALIAN:
+		# Make sure there's a space after ellipses
+		correctedText = re.sub(r"…(?=\w)", r"… ", correctedText)
+		# There shouldn't be a space between a quote attribution dash and the name
+		correctedText = re.sub(r"(?<=”\s—) (?=[A-Z])", "", correctedText)
+		# It has some trouble recognising exclamation marks
+		correctedText = re.sub(r" ?\.””", "!”", correctedText)
 
 	correctedText = correctedText.rstrip(" -_")
 	correctedText = correctedText.replace("““", "“")
@@ -669,6 +674,9 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 		outputCard["colors"] = [GlobalConfig.translation[color] for color in inputCard["magic_ink_colors"]]
 		outputCard["color"] = "-".join(outputCard["colors"])
 
+	if "deck_building_limit" in inputCard:
+		outputCard["maxCopiesInDeck"] = inputCard["deck_building_limit"]
+
 	# When building a deck in the official app, it gets saves as a string. This string starts with a '2', and then each card gets a two-character code based on the card's ID
 	# This card code is the card ID in base 62, using 0-9, a-z, and then A-Z for individual digits
 	cardCodeDigits = divmod(outputCard["id"], 62)
@@ -725,12 +733,13 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 	outputCard["artistsText"] = ocrResult.artistsText.lstrip(". ").replace("’", "'").replace("|", "l").replace("NM", "M")
 	oldArtistsText = outputCard["artistsText"]
 	outputCard["artistsText"] = re.sub(r"^[l[]", "I", outputCard["artistsText"])
-	while re.search(r" [a-z0-9ÿI|(\\/_+.,;”—-]{1,2}$", outputCard["artistsText"]):
+	while re.search(r" [a-z0-9ÿI|(\\/_+.,;”#—-]{1,2}$", outputCard["artistsText"]):
 		outputCard["artistsText"] = outputCard["artistsText"].rsplit(" ", 1)[0]
 	outputCard["artistsText"] = outputCard["artistsText"].rstrip(".")
 	if "ggman-Sund" in outputCard["artistsText"]:
 		outputCard["artistsText"] = re.sub("H[^ä]ggman-Sund", "Häggman-Sund", outputCard["artistsText"])
-	elif "Toziim" in outputCard["artistsText"] or "Tôzüm" in outputCard["artistsText"] or "Toztim" in outputCard["artistsText"]:
+	# elif "Toziim" in outputCard["artistsText"] or "Tôzüm" in outputCard["artistsText"] or "Toztim" in outputCard["artistsText"] or "Tézim" in outputCard["artistsText"]:
+	elif re.search(r"T[eéoô]z[iüt]{1,2}m\b", outputCard["artistsText"]):
 		outputCard["artistsText"] = re.sub(r"\bT\w+z\w+m\b", "Tözüm", outputCard["artistsText"])
 	elif re.match(r"Jo[^ã]o\b", outputCard["artistsText"]):
 		outputCard["artistsText"] = re.sub("Jo[^ã]o", "João", outputCard["artistsText"])
@@ -740,6 +749,8 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 		outputCard["artistsText"] = outputCard["artistsText"].replace("Cesar Vergara", "César Vergara")
 	elif "Perez" in outputCard["artistsText"]:
 		outputCard["artistsText"] = re.sub(r"\bPerez\b", "Pérez", outputCard["artistsText"])
+	elif outputCard["artistsText"].startswith("Niss "):
+		outputCard["artistsText"] = "M" + outputCard["artistsText"][1:]
 	elif GlobalConfig.language == Language.GERMAN:
 		# For some bizarre reason, the German parser reads some artist names as something completely different
 		if re.match(r"^ICHLER[GS]I?EN$", outputCard["artistsText"]):
@@ -749,6 +760,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 		outputCard["artistsText"] = outputCard["artistsText"].replace("Dösiree", "Désirée")
 		outputCard["artistsText"] = re.sub(r"Man[6e]+\b", "Mané", outputCard["artistsText"])
 	outputCard["artistsText"] = re.sub(r"\bAime\b", "Aimé", outputCard["artistsText"])
+	outputCard["artistsText"] = re.sub(r"\bPe[^ñ]+a\b", "Peña", outputCard["artistsText"])
 	if "“" in outputCard["artistsText"]:
 		# Simplify quotemarks
 		outputCard["artistsText"] = outputCard["artistsText"].replace("“", "\"").replace("”", "\"")
@@ -886,7 +898,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 					for keywordLine in keywordLines:
 						abilities.append({"type": "keyword", "fullText": keywordLine})
 						# These entries will get more fleshed out after the corrections (if any) are applied, to prevent having to correct multiple fields
-				elif len(remainingTextLine) > 5:
+				elif len(remainingTextLine) > 10:
 					# Since this isn't a named or keyword ability, assume it's a one-off effect
 					effects.append(remainingTextLine)
 				else:
@@ -915,6 +927,10 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 				# It seems to misread a lot of ability names as ending with a period, correct that (unless it's ellipsis)
 				if abilityName.endswith(".") and not abilityName.endswith("..."):
 					abilityName = abilityName.rstrip(".")
+			elif GlobalConfig.language == Language.ITALIAN:
+				abilityName = abilityName.replace("|", "I")
+				# It keeps reading 'IO' wrong
+				abilityName = re.sub("[1I]0", "IO", abilityName)
 			abilityEffect = correctText(ocrResult.abilityTexts[abilityIndex])
 			abilities.append({
 				"name": abilityName,
@@ -956,7 +972,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 			outputCard["clarifications"] = clarifications
 	# Determine subtypes and their order. Items and Actions have an empty subtypes list, ignore those
 	if ocrResult.subtypesText:
-		subtypes: List[str] = re.sub(fr"[^A-Za-zäèéöü{LorcanaSymbols.SEPARATOR} ]", "", ocrResult.subtypesText).split(f" {LorcanaSymbols.SEPARATOR} ")
+		subtypes: List[str] = re.sub(fr"[^A-Za-zàäèéöü{LorcanaSymbols.SEPARATOR} ]", "", ocrResult.subtypesText).split(f" {LorcanaSymbols.SEPARATOR} ")
 		if "ltem" in subtypes:
 			subtypes[subtypes.index("ltem")] = "Item"
 		# 'Seven Dwarves' is a subtype, but it might get split up into two types. Turn it back into one subtype
@@ -981,8 +997,10 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 				subtypes[subtypeIndex] = "Hero"
 			elif subtype == "IHlusion":
 				subtypes[subtypeIndex] = "Illusion"
+			elif GlobalConfig.language == Language.ITALIAN and subtype == "lena":
+				subtypes[subtypeIndex] = "Iena"
 			# Remove short subtypes, probably erroneous
-			elif len(subtype) < (4 if GlobalConfig.language == Language.ENGLISH else 3):
+			elif len(subtype) < (4 if GlobalConfig.language == Language.ENGLISH else 3) and subtype != "Re":  # 'Re' is Italian for 'King', so it's a valid subtype
 				_logger.debug(f"Removing subtype '{subtype}', too short")
 				subtypes.pop(subtypeIndex)
 			elif not re.search("[aeiouAEIOU]", subtype):
@@ -1095,7 +1113,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 				reminderText = None
 				if "(" in keyword:
 					# This includes reminder text, extract that
-					keyword, reminderText = keyword.rstrip(")").split(" (", 1)
+					keyword, reminderText = re.split(r"\s\(", keyword.rstrip(")"), 1)
 					reminderText = reminderText.replace("\n", " ")
 				keywordValue: Optional[str] = None
 				if keyword[-1].isnumeric():
@@ -1195,6 +1213,8 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 	if keywordAbilities:
 		outputCard["keywordAbilities"] = keywordAbilities
 	outputCard["artists"] = outputCard["artistsText"].split(" / ")
+	if "subtypes" in outputCard:
+		outputCard["subtypesText"] = f" {LorcanaSymbols.SEPARATOR} ".join(outputCard["subtypes"])
 	# Add external links (Do this after corrections so we can use a corrected 'fullIdentifier')
 	outputCard["externalLinks"] = _threadingLocalStorage.externalIdsHandler.getExternalLinksForCard(parsedIdentifier, "enchantedId" in outputCard)
 	if externalLinksCorrection:
