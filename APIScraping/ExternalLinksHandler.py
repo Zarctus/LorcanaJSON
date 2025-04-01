@@ -109,16 +109,40 @@ class ExternalLinksHandler:
 		for setCode, setData in setsData.items():
 			setNameToCode[setData["names"]["en"]] = setCode
 			setCodeToName[setCode] = setData["names"]["en"]
-
+	
 		# Get data from CardTrader, it includes Cardmarket and TCGplayer card IDs
 		headers = {"Authorization": "Bearer " + cardTraderToken}
-		expansionsRequest = requests.get("https://api.cardtrader.com/api/v2/expansions", headers=headers, timeout=10)
+		
+		# Fonction pour faire des requêtes avec gestion des erreurs
+		def safe_request(url, params=None, max_retries=2):
+			for attempt in range(max_retries):
+				try:
+					response = requests.get(url, headers=headers, params=params, timeout=30)
+					return response
+				except requests.exceptions.Timeout:
+					if attempt < max_retries - 1:
+						_LOGGER.warning(f"Timeout lors de la requête à {url}. Tentative {attempt+1}/{max_retries}. Réessai...")
+					else:
+						_LOGGER.error(f"Échec définitif après {max_retries} tentatives pour {url}")
+						return None
+				except Exception as e:
+					_LOGGER.error(f"Erreur lors de la requête à {url}: {str(e)}")
+					return None
+			return None
+		
 		cardsBySet: Dict[str, Dict[str, Dict[str, int]]] = {"Promos": {}}  # Top level is the set code, it contains for each card number (as string, because it can have f.i. 'P1') in that set a dictionary with the card IDs for various stores
 		for setName, setCode in setNameToCode.items():
 			cardsBySet[setCode] = {}
+		
+		# Obtenir la liste des expansions
+		expansionsRequest = safe_request("https://api.cardtrader.com/api/v2/expansions")
+		if expansionsRequest is None:
+			_LOGGER.error("Impossible de récupérer la liste des expansions. Abandon.")
+			return
 		if expansionsRequest.status_code != 200:
 			_LOGGER.error(f"Expansions retrieval request failed, status code {expansionsRequest.status_code}")
 			return
+		
 		expansionsRequestJson = expansionsRequest.json()
 		for expansion in expansionsRequestJson:
 			if expansion["game_id"] != _CARD_TRADER_LORCANA_ID:
@@ -133,8 +157,19 @@ class ExternalLinksHandler:
 			else:
 				_LOGGER.error(f"Unknown expansion name '{expansionName}' while parsing card shop data")
 				continue
+			
 			# Get the cards for this expansion
-			expansionCardsRequest = requests.get("https://api.cardtrader.com/api/v2/blueprints/export", params={"expansion_id": expansion["id"]}, headers=headers, timeout=10)
+			_LOGGER.info(f"Récupération des cartes pour l'expansion '{expansionName}'...")
+			expansionCardsRequest = safe_request("https://api.cardtrader.com/api/v2/blueprints/export", params={"expansion_id": expansion["id"]})
+			
+			if expansionCardsRequest is None:
+				_LOGGER.warning(f"Impossible de récupérer les cartes pour l'expansion '{expansionName}'. Passage à l'expansion suivante.")
+				continue
+				
+			if expansionCardsRequest.status_code != 200:
+				_LOGGER.warning(f"Échec de récupération des cartes pour l'expansion '{expansionName}', code {expansionCardsRequest.status_code}. Passage à l'expansion suivante.")
+				continue
+				
 			for card in expansionCardsRequest.json():
 				# The data also includes boosters, pins, marketing cards, and other non-card items, skip those
 				if not card["fixed_properties"] or not card["fixed_properties"]["collector_number"] or card["version"] == "Oversized" or card["fixed_properties"].get("lorcana_rarity", None) == "Oversized":
