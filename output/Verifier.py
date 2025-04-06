@@ -222,8 +222,8 @@ def compareInputToOutput(cardIdsToVerify: Union[List[int], None]):
 				logging.warning(f"ID {outputCard['id']} trouvé dans les cartes {GlobalConfig.language.englishName} mais pas dans les cartes anglaises, impossible de comparer")
 				continue
 			cardId = outputCard["id"]
-			for fieldname in ('abilities', 'artistsText', 'enchantedId', 'cost', 'effects', 'fullTextSections', 'inkwell', 'keywordAbilities',
-							  'lore', 'moveCost', 'nonEnchantedId', 'nonPromoId', 'number', 'strength', 'subtypes', 'variant', 'variandIds', 'willPower'):
+			for fieldname in ('abilities', 'artistsText', 'enchantedId', 'cost', 'effects', 'fullTextSections', 'inkwell', 'keywordAbilities', 'lore',
+							  'maxCardsInDeck', 'moveCost', 'nonEnchantedId', 'nonPromoId', 'number', 'strength', 'subtypes', 'variant', 'variandIds', 'willPower'):
 				if fieldname not in outputCard and fieldname not in englishCard:
 					continue
 				if fieldname in outputCard and fieldname not in englishCard:
@@ -240,7 +240,7 @@ def compareInputToOutput(cardIdsToVerify: Union[List[int], None]):
 					cardDifferencesCount += 1
 					print(f"{cardId}: '{fieldname}' differs between {GlobalConfig.language.englishName} '{outputCard[fieldname]}' and English '{englishCard[fieldname]}'")
 			if outputCard["fullText"] or englishCard["fullText"]:
-				for symbol in ("⟳", "⬡", "◊", "¤", "⛉", "◉", "•"):
+				for symbol in LorcanaSymbols.ALL_SYMBOLS:
 					expectedCount = englishCard["fullText"].count(symbol)
 					if GlobalConfig.language == Language.FRENCH and symbol == "¤" and "Soutien" in outputCard["fullText"]:
 						# While most languages use two strength symbols in the Support reminder text, French uses just one. To prevent false positives and negatives, adjust our expectations
