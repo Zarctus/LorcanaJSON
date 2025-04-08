@@ -2,3 +2,5 @@ opencv-python
 Pillow
 requests
 tesserocr
+mysql-connector-python
+pymysql
