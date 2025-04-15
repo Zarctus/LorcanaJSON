@@ -6,11 +6,11 @@ from APIScraping.ExternalLinksHandler import ExternalLinksHandler
 from OCR import ImageParser, OcrCacheHandler
 from OCR.OcrResult import OcrResult
 from output.StoryParser import StoryParser
-from util import IdentifierParser, Language, LorcanaSymbols
+from util import IdentifierParser, JsonUtil, Language, LorcanaSymbols
 
 
 _logger = logging.getLogger("LorcanaJSON")
-FORMAT_VERSION = "2.1.2"
+FORMAT_VERSION = "2.1.3"
 _CARD_CODE_LOOKUP = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 _KEYWORD_REGEX = re.compile(r"(?:^|\n)([A-ZÀ][^.]+)(?=\s\([A-Z])")
 _KEYWORD_REGEX_WITHOUT_REMINDER = re.compile(r"^[A-Z][a-z]{2,}( \d)?$")
@@ -410,23 +410,19 @@ def createOutputFiles(onlyParseIds: Union[None, List[int]] = None, shouldShowIma
 	with open(cardCatalogPath, "r", encoding="utf-8") as inputFile:
 		inputData = json.load(inputFile)
 
-	with open(os.path.join("output", "outputDataCorrections.json"), "r", encoding="utf-8") as correctionsFile:
-		cardDataCorrections: Dict[int, Dict[str, List[str, str]]] = {int(k, 10): v for k, v in json.load(correctionsFile).items()}
+	cardDataCorrections: Dict[int, Dict[str, List[str, str]]] = JsonUtil.loadJsonWithNumberKeys(os.path.join("output", "outputDataCorrections.json"))
 	correctionsFilePath = os.path.join("output", f"outputDataCorrections_{GlobalConfig.language.code}.json")
 	if os.path.isfile(correctionsFilePath):
-		with open(correctionsFilePath, "r", encoding="utf-8") as correctionsFile:
-			# Convert all the ID keys to numbers as we load
-			for cardId, corrections in json.load(correctionsFile).items():
-				cardId = int(cardId, 10)
-				if cardId in cardDataCorrections:
-					# Merge the language-specific corrections with the global corrections
-					for fieldCorrectionName, fieldCorrection in corrections.items():
-						if fieldCorrectionName in cardDataCorrections[cardId]:
-							cardDataCorrections[cardId][fieldCorrectionName].extend(fieldCorrection)
-						else:
-							cardDataCorrections[cardId][fieldCorrectionName] = fieldCorrection
-				else:
-					cardDataCorrections[cardId] = corrections
+		for cardId, corrections in JsonUtil.loadJsonWithNumberKeys(correctionsFilePath).items():
+			if cardId in cardDataCorrections:
+				# Merge the language-specific corrections with the global corrections
+				for fieldCorrectionName, fieldCorrection in corrections.items():
+					if fieldCorrectionName in cardDataCorrections[cardId]:
+						cardDataCorrections[cardId][fieldCorrectionName].extend(fieldCorrection)
+					else:
+						cardDataCorrections[cardId][fieldCorrectionName] = fieldCorrection
+			else:
+				cardDataCorrections[cardId] = corrections
 	else:
 		_logger.warning(f"No corrections file exists for language '{GlobalConfig.language.code}', so no language-specific corrections will be done. This doesn't break anything, but results might not be perfect")
 
@@ -492,10 +488,11 @@ def createOutputFiles(onlyParseIds: Union[None, List[int]] = None, shouldShowIma
 
 	historicDataFilePath = os.path.join("output", f"historicData_{GlobalConfig.language.code}.json")
 	if os.path.isfile(historicDataFilePath):
-		with open(historicDataFilePath, "r", encoding="utf-8") as historicDataFile:
-			historicData = {int(k, 10): v for k, v in json.load(historicDataFile).items()}
+		historicData = JsonUtil.loadJsonWithNumberKeys(historicDataFilePath)
 	else:
 		historicData = {}
+
+	cardBans = JsonUtil.loadJsonWithNumberKeys(os.path.join("output", "CardBans.json"))
 
 	# Get the cards we don't have to parse (if any) from the previous generated file
 	fullCardList = []
@@ -546,7 +543,7 @@ def createOutputFiles(onlyParseIds: Union[None, List[int]] = None, shouldShowIma
 					continue
 				try:
 					results.append(pool.apply_async(_parseSingleCard, (inputCard, cardTypeText, imageFolder, enchantedNonEnchantedIds.get(cardId, None), promoNonPromoIds.get(cardId, None), variantsDeckBuildingIds.get(inputCard["deck_building_id"]),
-												  cardDataCorrections.pop(cardId, None), cardToStoryParser, False, historicData.get(cardId, None), shouldShowImages)))
+												  cardDataCorrections.pop(cardId, None), cardToStoryParser, False, historicData.get(cardId, None), cardBans.pop(cardId, None), shouldShowImages)))
 					cardIdsStored.append(cardId)
 				except Exception as e:
 					_logger.error(f"Exception {type(e)} occured while parsing card ID {inputCard['culture_invariant_id']}")
@@ -564,7 +561,7 @@ def createOutputFiles(onlyParseIds: Union[None, List[int]] = None, shouldShowIma
 				_logger.debug(f"Card ID {cardId} is defined in the official file and in the external file, skipping the external data")
 				continue
 			results.append(pool.apply_async(_parseSingleCard, (externalCard, externalCard["type"], imageFolder, enchantedNonEnchantedIds.get(cardId, None), promoNonPromoIds.get(cardId, None), variantsDeckBuildingIds,
-															   cardDataCorrections.pop(cardId, None), cardToStoryParser, True, historicData.get(cardId, None), shouldShowImages)))
+															   cardDataCorrections.pop(cardId, None), cardToStoryParser, True, historicData.get(cardId, None), cardBans.pop(cardId, None), shouldShowImages)))
 		pool.close()
 		pool.join()
 	for result in results:
@@ -586,9 +583,12 @@ def createOutputFiles(onlyParseIds: Union[None, List[int]] = None, shouldShowIma
 	# Add set data
 	with open(os.path.join("output", f"baseSetData.json"), "r", encoding="utf-8") as baseSetDataFile:
 		setsData = json.load(baseSetDataFile)
-		for setCode in setsData:
-			# Get just the current language's set names
-			setsData[setCode]["name"] = setsData[setCode].pop("names")[GlobalConfig.language.code]
+		for setCode in list(setsData.keys()):
+			if setsData[setCode]["names"][GlobalConfig.language.code]:
+				setsData[setCode]["name"] = setsData[setCode].pop("names")[GlobalConfig.language.code]
+			else:
+				_logger.warning(f"Name for set {setCode} is empty or doesn't exist for language code '{GlobalConfig.language.code}', not adding the set to the output files")
+				del setsData[setCode]
 	outputDict["sets"] = setsData
 
 	# Create the output files
@@ -692,7 +692,7 @@ def createOutputFiles(onlyParseIds: Union[None, List[int]] = None, shouldShowIma
 	_logger.info(f"Created the set files in {time.perf_counter() - startTime:.4f} seconds")
 
 def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchantedNonEnchantedId: Union[int, None], promoNonPromoId: Union[int, List[int], None], variantIds: Union[List[int], None],
-					 cardDataCorrections: Dict, storyParser: StoryParser, isExternalReveal: bool, historicData: List[Dict], shouldShowImage: bool = False) -> Union[Dict, None]:
+					 cardDataCorrections: Dict, storyParser: StoryParser, isExternalReveal: bool, historicData: Union[None, List[Dict]], bannedSince: Union[None, str] = None, shouldShowImage: bool = False) -> Union[Dict, None]:
 	# Store some default values
 	outputCard: Dict[str, Union[str, int, List, Dict]] = {
 		"id": inputCard["culture_invariant_id"],
@@ -1000,8 +1000,9 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 				infoEntryClarifications = re.split("\\s*\n+(?=[FQ]:)", infoText)
 				clarifications.extend(infoEntryClarifications)
 			# Some German cards have an artist correction in their 'additional_info', but that's already correct in the data, so ignore that
+			# Bans are listed as additional info, but we handle that separately, so ignore those
 			# For other additional_info types, print an error, since that should be handled
-			elif infoEntry["title"] != "Illustratorin":
+			elif infoEntry["title"] != "Illustratorin" and infoEntry["title"] != "Ban":
 				_logger.warning(f"Unknown 'additional_info' type '{infoEntry['title']}' in card {_createCardIdentifier(outputCard)}")
 		if errata:
 			outputCard["errata"] = errata
@@ -1296,6 +1297,8 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 		outputCard["foilTypes"] = ["None", "Cold"]
 	if historicData:
 		outputCard["historicData"] = historicData
+	if bannedSince:
+		outputCard["bannedSince"] = bannedSince
 	# Sort the dictionary by key
 	outputCard = {key: outputCard[key] for key in sorted(outputCard)}
 	return outputCard
