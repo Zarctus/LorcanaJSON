@@ -1,11 +1,12 @@
 import argparse, dataclasses, datetime, json, logging, logging.handlers, os, re, sys, time
 
-import DataFilesGenerator, GlobalConfig, UpdateHandler
+import GlobalConfig, UpdateHandler
+from OutputGeneration import DataFilesGenerator
 from APIScraping import RavensburgerApiHandler
 from APIScraping.ExternalLinksHandler import ExternalLinksHandler
 from OCR import ImageParser, OcrCacheHandler
 from output import Verifier
-from util import Language, Translations
+from util import Language, Translations, RegexCounter, StringReplaceCounter
 
 
 def _infoOrPrint(logger: logging.Logger, message: str):
@@ -251,3 +252,7 @@ if __name__ == '__main__':
 		print()
 	if len(parsedArguments.language) > 1:
 		_infoOrPrint(logger, f"Finished actions for all specified languages after {time.perf_counter() - totalStartTime:.2f} seconds at {datetime.datetime.now()}")
+	if RegexCounter.hasCounts():
+		print(f"Regex counters: {json.dumps(RegexCounter.REGEX_COUNTS)}")
+	if StringReplaceCounter.COUNTS:
+		print(f"StringReplacement counters: {json.dumps(StringReplaceCounter.COUNTS)}")
