@@ -11,7 +11,7 @@ from util import IdentifierParser, JsonUtil, Language, LorcanaSymbols
 
 
 _logger = logging.getLogger("LorcanaJSON")
-FORMAT_VERSION = "2.1.3"
+FORMAT_VERSION = "2.1.4"
 _CARD_CODE_LOOKUP = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 _KEYWORD_REGEX = re.compile(r"(?:^|\n)([A-ZÀ][^.]+)(?=\s\([A-Z])")
 _KEYWORD_REGEX_WITHOUT_REMINDER = re.compile(r"^[A-Z][a-z]{2,}( \d)?$")
@@ -47,7 +47,7 @@ def correctText(cardText: str) -> str:
 	cardText = re.sub(r"(?<=[”’)])\s.$", "", cardText, flags=re.MULTILINE)
 	# The 'exert' symbol often gets mistaken for a @ or G, correct that
 	cardText = re.sub(r"(?<![0-9s])(^|[\"“„ ])[(@Gg©€]{1,3}9?([ ,])", fr"\1{LorcanaSymbols.EXERT}\2", cardText, flags=re.MULTILINE)
-	cardText = re.sub(r"^([(&f]+À?|fà)? ?[-—] ", f"{LorcanaSymbols.EXERT} — ", cardText)
+	cardText = re.sub(r"^([(&f]+À?|fà)? ?[-—](?=\s)", f"{LorcanaSymbols.EXERT} —", cardText)
 	# Some cards have a bulleted list, replace the start character with the separator symbol
 	cardText = re.sub(r"^[-+*«»¢,‚](?= \w{2,} \w+)", LorcanaSymbols.SEPARATOR, cardText, flags=re.MULTILINE)
 	# Other weird symbols are probably strength symbols
@@ -68,7 +68,7 @@ def correctText(cardText: str) -> str:
 	# Negative numbers are always followed by a strength symbol, correct that
 	cardText = re.sub(fr"(?<= )(-\d)( [^{LorcanaSymbols.STRENGTH}{LorcanaSymbols.LORE}a-z .]{{1,2}})?( \w|$)", fr"\1 {LorcanaSymbols.STRENGTH}\3", cardText, flags=re.MULTILINE)
 	# Two numbers in a row never happens, or a digit followed by a loose capital lettter. The latter should probably be a Strength symbol
-	cardText = re.sub(r"(\d) [0-9DGOQ]{1,2}[%{}]?(?=\W)", f"\\1 {LorcanaSymbols.STRENGTH}", cardText)
+	cardText = re.sub(r"(\d) [0-9DGOQ]{1,2}[%{}°]?(?=\W)", f"\\1 {LorcanaSymbols.STRENGTH}", cardText)
 	# Letters after a quotemark at the start of a line should be capitalized
 	cardText = re.sub("^“[a-z]", lambda m: m.group(0).upper(), cardText, flags=re.MULTILINE)
 	if re.search(" [^?!.…”“0-9]$", cardText):
@@ -190,7 +190,8 @@ def correctText(cardText: str) -> str:
 		# Correct pipe characters
 		cardText = cardText.replace("|", "I")
 		# Correct payment text
-		cardText = re.sub(fr"(\b[Pp]ag(a(?:re)?|hi)\s\d )[^{LorcanaSymbols.INK} .]*", fr"\1{LorcanaSymbols.INK}", cardText)
+		cardText = re.sub(r"pagare (\d) per", fr"pagare \1 {LorcanaSymbols.INK} per", cardText)
+		cardText = re.sub(fr"(\b[Pp]ag(a(?:re)?|hi)\s\d )[^{LorcanaSymbols.INK} .]+", fr"\1{LorcanaSymbols.INK}", cardText)
 		cardText = re.sub(r"(\b[Pp]aga(?:re)?\s\d)[0Q]", f"\\1 {LorcanaSymbols.INK}", cardText)
 		# Correct Support reminder text
 		cardText = re.sub(r"(?<=aggiungere\sla\ssua\s)(?:\S+)(\salla\s)(?:\S+)(?=\sdi\sun)", f"{LorcanaSymbols.STRENGTH}\\1{LorcanaSymbols.STRENGTH}", cardText)
@@ -252,6 +253,9 @@ def correctPunctuation(textToCorrect: str) -> str:
 		correctedText = re.sub(r"([\xa0 ]?\.[\xa0 ]?){3}", "..." if GlobalConfig.language == Language.ENGLISH else "…", correctedText)
 	if "…" in correctedText:
 		correctedText = re.sub(r"\.*…( ?\.+)?", "…", correctedText)
+	# Replace non-breaking spaces with normal spaces, for consistency
+	if "\xa0" in correctedText:
+		correctedText = correctedText.replace("\xa0", " ")
 	if correctedText.startswith("‘"):
 		correctedText = "“" + correctedText[1:]
 	if correctedText.endswith(","):
@@ -774,7 +778,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 		parsedIdentifier = IdentifierParser.parseIdentifier(inputCard["card_identifier"])
 
 	ocrResult: OcrResult = None
-	if GlobalConfig.useCachedOcr:
+	if GlobalConfig.useCachedOcr and not GlobalConfig.skipOcrCache:
 		ocrResult = OcrCacheHandler.getCachedOcrResult(outputCard["id"])
 
 	if ocrResult is None:
@@ -789,7 +793,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 			isEnchanted=outputCard["rarity"] == GlobalConfig.translation.ENCHANTED or inputCard.get("foil_type", None) == "Satin",  # Disney100 cards need Enchanted parsing, foil_type seems best way to determine Disney100
 			showImage=shouldShowImage
 		)
-		if not GlobalConfig.skipCachingOcr:
+		if not GlobalConfig.skipOcrCache:
 			OcrCacheHandler.storeOcrResult(outputCard["id"], ocrResult)
 
 	if ocrResult.identifier and (ocrResult.identifier.startswith("0") or "TFC" in ocrResult.identifier or GlobalConfig.language.uppercaseCode not in ocrResult.identifier):
@@ -819,7 +823,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 	outputCard["artistsText"] = ocrResult.artistsText.lstrip(". ").replace("’", "'").replace("|", "l").replace("NM", "M")
 	oldArtistsText = outputCard["artistsText"]
 	outputCard["artistsText"] = re.sub(r"^[l[]", "I", outputCard["artistsText"])
-	while re.search(r" [a-z0-9ÿI|(\\/_+.,;”#—-]{1,2}$", outputCard["artistsText"]):
+	while re.search(r" [a-zA0-9ÿI|(\\/_+.,;'”#—-]{1,2}$", outputCard["artistsText"]):
 		outputCard["artistsText"] = outputCard["artistsText"].rsplit(" ", 1)[0]
 	outputCard["artistsText"] = outputCard["artistsText"].rstrip(".")
 	if "ggman-Sund" in outputCard["artistsText"]:
@@ -835,7 +839,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 		outputCard["artistsText"] = outputCard["artistsText"].replace("Cesar Vergara", "César Vergara")
 	elif "Perez" in outputCard["artistsText"]:
 		outputCard["artistsText"] = re.sub(r"\bPerez\b", "Pérez", outputCard["artistsText"])
-	elif outputCard["artistsText"].startswith("Niss "):
+	elif outputCard["artistsText"].startswith("Niss ") or outputCard["artistsText"].startswith("Nilica "):
 		outputCard["artistsText"] = "M" + outputCard["artistsText"][1:]
 	elif GlobalConfig.language == Language.GERMAN:
 		# For some bizarre reason, the German parser reads some artist names as something completely different
@@ -913,6 +917,8 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 		}
 		if "foil_mask_url" in inputCard:
 			outputCard["images"]["foilMask"] = _cleanUrl(inputCard["foil_mask_url"])
+		if "varnish_mask_url" in inputCard:
+			outputCard["images"]["varnishMask"] = _cleanUrl(inputCard["varnish_mask_url"])
 	elif "imageUrl" in inputCard:
 		outputCard["images"] = {"full": inputCard["imageUrl"]}
 	else:
@@ -1130,6 +1136,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 		newlineAfterLabelIndex = cardDataCorrections.pop("_newlineAfterLabelIndex", -1)
 		mergeEffectIndexWithPrevious = cardDataCorrections.pop("_mergeEffectIndexWithPrevious", -1)
 		effectAtIndexIsAbility: Union[int, List[int, str]] = cardDataCorrections.pop("_effectAtIndexIsAbility", -1)
+		effectAtIndexIsFlavorText: int = cardDataCorrections.pop("_effectAtIndexIsFlavorText", -1)
 		externalLinksCorrection = cardDataCorrections.pop("externalLinks", None)
 		fullTextCorrection = cardDataCorrections.pop("fullText", None)
 		moveAbilityAtIndexToIndex = cardDataCorrections.pop("_moveAbilityAtIndexToIndex", None)
@@ -1176,6 +1183,17 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 			outputCard["abilities"].append({"name": abilityNameForEffectIsAbility, "effect": outputCard["effects"].pop(effectAtIndexIsAbility)})
 			if len(outputCard["effects"]) == 0:
 				del outputCard["effects"]
+		if effectAtIndexIsFlavorText != -1:
+			if "effects" not in outputCard:
+				_logger.error(f"Correction to move effect index {effectAtIndexIsAbility} to flavor text, but card {_createCardIdentifier(outputCard)} doesn't have an 'effects' field")
+			elif "flavorText" in outputCard:
+				_logger.error(f"Correction to move effect index {effectAtIndexIsAbility} to flavor text, but card {_createCardIdentifier(outputCard)} already has a 'flavorText' field")
+			else:
+				_logger.info(f"Moving effect index {effectAtIndexIsFlavorText} to flavor text")
+				outputCard["flavorText"] = outputCard["effects"].pop(effectAtIndexIsFlavorText)
+				if len(outputCard["effects"]) == 0:
+					del outputCard["effects"]
+
 	# An effect should never start with a separator; if it does, join it with the previous effect since it should be part of its option list
 	if "effects" in outputCard:
 		for effectIndex in range(len(outputCard["effects"]) - 1, 0, -1):
@@ -1344,6 +1362,8 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 		# We can't know the foil type(s) of externally revealed cards, so not having the data at all is better than adding possibly wrong data
 		# 'Normal' (so non-promo non-Enchanted) cards exist in unfoiled and cold-foiled types, so just default to that if no explicit foil type is provided
 		outputCard["foilTypes"] = ["None", "Cold"]
+	if "varnish_type" in inputCard:
+		outputCard["varnishType"] = inputCard["varnish_type"]
 	if historicData:
 		outputCard["historicData"] = historicData
 	if bannedSince:
