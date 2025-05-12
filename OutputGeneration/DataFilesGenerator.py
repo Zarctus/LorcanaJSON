@@ -107,7 +107,7 @@ def correctText(cardText: str) -> str:
 		# Shift
 		cardText = re.sub(f"pay (\\d+) {LorcanaSymbols.INK} play this", f"pay \\1 {LorcanaSymbols.INK} to play this", cardText)
 		# Song
-		cardText = re.sub(f"(can|may)( [^{LorcanaSymbols.EXERT}]{{1,2}})? to sing this", f"\\1 {LorcanaSymbols.EXERT} to sing this", cardText)
+		cardText = re.sub(fr"(can|may)( [^{LorcanaSymbols.EXERT}]{{1,2}})?(?=\sto sing this)", f"\\1 {LorcanaSymbols.EXERT}", cardText)
 		# Support, full line (not sure why it sometimes doesn't get cut into two lines
 		if re.search(r"their \S{1,3}\sto another chosen character['’]s", cardText):
 			cardText = re.sub(f"their [^{LorcanaSymbols.STRENGTH}]{{1,3}} to", f"their {LorcanaSymbols.STRENGTH} to", cardText)
@@ -133,6 +133,7 @@ def correctText(cardText: str) -> str:
 		# Correct Challenger/Offensif reminder text
 		cardText = re.sub(r"gagne \+(\d+) \.\)", fr"gagne +\1 {LorcanaSymbols.STRENGTH}.)", cardText)
 		# Cost discount text
+		cardText = re.sub(r"coûte (\d)0 de moins", f"coûte \\1 {LorcanaSymbols.INK} de moins", cardText)
 		cardText = re.sub(fr"(coûte(?:nt)? )(\d+) [^{LorcanaSymbols.INK} \nou]+", fr"\1\2 {LorcanaSymbols.INK}", cardText)
 		# Fix punctuation by turning multiple periods into an ellipsis character, and correct ellipsis preceded or followed by periods
 		cardText = re.sub(r"…?\.{2,}…?", "…", cardText)
@@ -142,7 +143,7 @@ def correctText(cardText: str) -> str:
 		# "Il" often gets misread as "I!" or "[|"
 		cardText = re.sub(r"(?<![A-Z])[I|/[][!|]", "Il", cardText)
 		# French always has a space before punctuation marks
-		cardText = re.sub(r"(\S)!", r"\1 !", cardText)
+		cardText = re.sub(r"([^? ])!", r"\1 !", cardText)
 		cardText = re.sub(r"!(\w)", r"! \1", cardText)
 		cardText = cardText.replace("//", "Il")
 		cardText = re.sub(fr"((?:\bce personnage|\bil) gagne )\+(\d) [^{LorcanaSymbols.LORE}{LorcanaSymbols.STRENGTH}{LorcanaSymbols.WILLPOWER}]?\.", fr"\1+\2 {LorcanaSymbols.STRENGTH}.", cardText)
@@ -1009,7 +1010,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 				abilityName = re.sub("A ?!(?=.{3,})", "AI", abilityName)
 				if "!" in abilityName or "?" in abilityName:
 					# French puts a space before an exclamation or question mark, add that in
-					abilityName, replacementCount = re.subn(r"(\S)([!?])", r"\1 \2", abilityName)
+					abilityName, replacementCount = re.subn(r"(?<![?! ])([!?])", r" \1", abilityName)
 					if replacementCount > 0:
 						_logger.debug(f"Added a space before the exclamation or question mark in ability name '{abilityName}'")
 				abilityName, replacementCount = re.subn(r"\bCA\b", "ÇA", abilityName)
