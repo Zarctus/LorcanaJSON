@@ -2,7 +2,7 @@ import json, os, re, logging
 from typing import Dict, List, Union
 
 import GlobalConfig
-from util import Language, LorcanaSymbols, Translations
+from util import JsonUtil, Language, LorcanaSymbols, Translations
 
 
 _subtypeSeparatorString = f" {LorcanaSymbols.SEPARATOR} "
@@ -45,11 +45,8 @@ def compareInputToOutput(cardIdsToVerify: Union[List[int], None]):
 	# It's organised by language, then by card ID, then by inputCard field, where the value is a pair of strings (regex match and correction), or a new number if it's a numeric field
 	overridesFilePath = os.path.join("output", f"verifierOverrides_{GlobalConfig.language.code}.json")
 	if os.path.isfile(overridesFilePath):
-		with open(overridesFilePath, "r", encoding="utf-8") as overridesFile:
-			inputOverrides = json.load(overridesFile)
-			# Convert the keys to ints
-			inputOverrides = {int(k, 10): v for k, v in inputOverrides.items()}
-			print(f"Overrides file found, loaded {len(inputOverrides):,} input overrides")
+		inputOverrides = JsonUtil.loadJsonWithNumberKeys(overridesFilePath)
+		print(f"Overrides file found, loaded {len(inputOverrides):,} input overrides")
 	else:
 		print("No overrides file found")
 		inputOverrides = {}
@@ -70,6 +67,7 @@ def compareInputToOutput(cardIdsToVerify: Union[List[int], None]):
 		inputCard = idToInputCard[cardId]
 
 		# Implement overrides
+		symbolCountChange = None
 		if cardId in inputOverrides:
 			symbolCountChange = inputOverrides[cardId].pop("_symbolCountChange", None)
 			for fieldName, correctionsTuple in inputOverrides[cardId].items():
@@ -85,13 +83,11 @@ def compareInputToOutput(cardIdsToVerify: Union[List[int], None]):
 						inputCard[fieldName], correctionCount = re.subn(regexMatch, correctionText, inputCard[fieldName])
 						if correctionCount == 0:
 							print(f"ERROR: Invalid correction override {regexMatch!r} for field '{fieldName}' for card ID {cardId}")
-		else:
-			symbolCountChange = None
 
 		# Compare rules text
 		if inputCard.get("rules_text", None) or outputCard["fullText"]:
 			if inputCard.get("rules_text", None):
-				inputRulesText = inputCard["rules_text"].replace("–", "-").replace("\\", "")
+				inputRulesText = inputCard["rules_text"].replace("\\", "")
 				inputRulesText = re.sub(r"(?<=\w)’(?=\w)", "'", inputRulesText)
 				inputRulesText = inputRulesText.replace("\u00a0", " " if GlobalConfig.language == Language.FRENCH else "").replace("  ", " ")
 				inputRulesText = inputRulesText.replace(" \"", " “").replace("\" ", "” ")
@@ -103,9 +99,6 @@ def compareInputToOutput(cardIdsToVerify: Union[List[int], None]):
 					# Exclamation marks etc. should be preceded by a space
 					inputRulesText = re.sub(r"(?<=\w)([?!:])", r" \1", inputRulesText)
 					inputRulesText = re.sub("\\.{2,}", "…", inputRulesText)
-				elif GlobalConfig.language == Language.GERMAN:
-					# Ability dashes are inconsistent, force them to long-dash, since that's what's on the card
-					inputRulesText = re.sub(r" [-–] ", " — ", inputRulesText)
 				elif GlobalConfig.language == Language.ITALIAN:
 					inputRulesText = inputRulesText.replace("...", "…")
 			else:
