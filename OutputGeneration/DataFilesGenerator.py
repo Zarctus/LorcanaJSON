@@ -86,6 +86,7 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(r"(?<=\w)!(?=,? ?[a-z])", "l", cardText)  # Replace exclamation mark followed by a lowercase letter by an 'l'
 		cardText = re.sub(r"^(“)?! ", r"\1I ", cardText)
 		cardText = re.sub(r"(^| |\n|“)[lIL!]([dlmM]l?)\b", r"\1I'\2", cardText, flags=re.MULTILINE)
+		cardText = re.sub("^l", "I", cardText)
 		cardText = re.sub(r" ‘em\b", " 'em", cardText)
 		# Correct some fancy qoute marks at the end of some plural possessives. This is needed on a case-by-case basis, otherwise too much text is changed
 		cardText = re.sub(r"\bteammates’( |$)", r"teammates'\1", cardText, flags=re.MULTILINE)
@@ -263,7 +264,9 @@ def correctPunctuation(textToCorrect: str) -> str:
 		correctedText = "“" + correctedText[1:]
 	if correctedText.endswith(","):
 		correctedText = correctedText[:-1] + "."
-	if GlobalConfig.language == Language.GERMAN:
+	if GlobalConfig.language == Language.ENGLISH:
+		correctedText = correctedText.replace("youre", "you're").replace("theyre", "they're")
+	elif GlobalConfig.language == Language.GERMAN:
 		# In German, ellipsis always have a space between words before and after it
 		if "…" in correctedText:
 			correctedText = re.sub(r"(\w)…", r"\1 …", correctedText)
@@ -844,6 +847,8 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 		outputCard["artistsText"] = re.sub(r"\bPerez\b", "Pérez", outputCard["artistsText"])
 	elif outputCard["artistsText"].startswith("Niss ") or outputCard["artistsText"].startswith("Nilica "):
 		outputCard["artistsText"] = "M" + outputCard["artistsText"][1:]
+	elif re.search(r"\bAim[^è]\b", outputCard["artistsText"]):
+		outputCard["artistsText"] = re.sub(r"\bAim[^è]\b", "Aimè", outputCard["artistsText"])
 	elif GlobalConfig.language == Language.GERMAN:
 		# For some bizarre reason, the German parser reads some artist names as something completely different
 		if re.match(r"^ICHLER[GS]I?EN$", outputCard["artistsText"]):
@@ -852,7 +857,6 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 			outputCard["artistsText"] = "Lauren Levering"
 		outputCard["artistsText"] = outputCard["artistsText"].replace("Dösiree", "Désirée")
 		outputCard["artistsText"] = re.sub(r"Man[6e]+\b", "Mané", outputCard["artistsText"])
-	outputCard["artistsText"] = re.sub(r"\bAime\b", "Aimé", outputCard["artistsText"])
 	outputCard["artistsText"] = re.sub(r"\bPe[^ñ]+a\b", "Peña", outputCard["artistsText"])
 	if "“" in outputCard["artistsText"]:
 		# Simplify quotemarks
@@ -1008,6 +1012,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 			abilityName = re.sub(r"(?<=\w) ?[.7|»”©\"]$", "", abilityName)
 			if GlobalConfig.language == Language.ENGLISH:
 				abilityName = abilityName.replace("|", "I")
+				abilityName = re.sub("^l", "I", abilityName)
 			elif GlobalConfig.language == Language.FRENCH:
 				abilityName = re.sub("A ?!(?=.{3,})", "AI", abilityName)
 				if "!" in abilityName or "?" in abilityName:
@@ -1240,6 +1245,8 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 				if reminderText is not None:
 					ability["reminderText"] = reminderText
 				keywordAbilities.append(keyword)
+				if newlineAfterLabelIndex == abilityIndex:
+					_logger.error(f"Ability at index {newlineAfterLabelIndex} is set to get a newline after its ability name, but it is a keyword ability and doesn't have a name")
 			else:
 				# Non-keyword ability, determine which type it is
 				ability["type"] = "static"
@@ -1307,6 +1314,8 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 						ability["fullText"] += " "
 				else:
 					ability["fullText"] = ""
+					if newlineAfterLabelIndex == abilityIndex:
+						_logger.error(f"Ability at index {newlineAfterLabelIndex} is set to get a newline after its ability name, but it doesn't have a name")
 				if "costsText" in ability:
 					# Since we don't know the exact type of separating dash, get it from the regex
 					ability["fullText"] += ability["costsText"] + activatedAbilityMatch.group(0)
