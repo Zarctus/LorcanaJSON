@@ -7,6 +7,7 @@ from APIScraping.ExternalLinksHandler import ExternalLinksHandler
 from OCR import ImageParser, OcrCacheHandler
 from output import Verifier
 from util import Language, Translations, RegexCounter, StringReplaceCounter
+from util import DownloadUtil  # Ajouté pour accès à DownloadException
 
 
 def _infoOrPrint(logger: logging.Logger, message: str):
@@ -206,7 +207,11 @@ if __name__ == '__main__':
 				RavensburgerApiHandler.saveCardCatalog(cardCatalog)
 			else:
 				_infoOrPrint(logger, f"No new version of the card catalog for language '{GlobalConfig.language.englishName}' found")
-			RavensburgerApiHandler.downloadImages()
+			try:
+				RavensburgerApiHandler.downloadImages()
+			except DownloadUtil.DownloadException as e:
+				logger.error(f"Erreur lors du téléchargement d'une image : {e}")
+				print("Une erreur est survenue lors du téléchargement d'une ou plusieurs images. Veuillez vérifier votre connexion ou réessayer plus tard.")
 		elif parsedArguments.action == "updateExternalLinks":
 			if not config.get("cardTraderToken", None):
 				logger.error("Missing Card Trader API token in config file")
