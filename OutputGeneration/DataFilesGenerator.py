@@ -573,12 +573,27 @@ def createOutputFiles(onlyParseIds: Union[None, List[int]] = None, shouldShowIma
 				continue
 			results.append(pool.apply_async(_parseSingleCard, (externalCard, externalCard["type"], imageFolder, enchantedNonEnchantedIds.get(cardId, None), promoNonPromoIds.get(cardId, None), variantsDeckBuildingIds,
 															   cardDataCorrections.pop(cardId, None), cardToStoryParser, True, historicData.get(cardId, None), cardBans.pop(cardId, None), shouldShowImages)))
+		missing_images = []
+		for result in results:
+			try:
+				outputCard = result.get()
+				if outputCard:
+					fullCardList.append(outputCard)
+			except FileNotFoundError as e:
+				# Récupère l'ID de la carte depuis le message d'erreur
+				import re
+				match = re.search(r"card ID (\d+)", str(e))
+				if match:
+					missing_images.append(int(match.group(1)))
+				_logger.warning(f"Image manquante pour la carte : {e}")
+			except Exception as e:
+				_logger.error(f"Erreur inattendue lors du parsing d'une carte : {e}")
+		if missing_images:
+			print(f"\nATTENTION : Les images suivantes sont manquantes et les cartes correspondantes n'ont pas été générées : {', '.join(map(str, missing_images))}\n")
+
 		pool.close()
 		pool.join()
-	for result in results:
-		outputCard = result.get()
-		if outputCard:
-			fullCardList.append(outputCard)
+
 	_logger.info(f"Created card list in {time.perf_counter() - startTime} seconds")
 
 	if cardDataCorrections:
