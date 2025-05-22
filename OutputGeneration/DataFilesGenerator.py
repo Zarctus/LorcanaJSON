@@ -110,8 +110,8 @@ def correctText(cardText: str) -> str:
 		# Song
 		cardText = re.sub(fr"(can|may)( [^{LorcanaSymbols.EXERT}]{{1,2}})?(?=\sto sing this)", f"\\1 {LorcanaSymbols.EXERT}", cardText)
 		# Support, full line (not sure why it sometimes doesn't get cut into two lines
-		if re.search(r"their \S{1,3}\sto another chosen character['’]s", cardText):
-			cardText = re.sub(f"their [^{LorcanaSymbols.STRENGTH}]{{1,3}} to", f"their {LorcanaSymbols.STRENGTH} to", cardText)
+		if re.search(r"their\s\S{1,3}\sto another chosen character['’]s", cardText):
+			cardText = re.sub(fr"(?<=their\s)[^{LorcanaSymbols.STRENGTH}]{{1,3}}(?=\sto)", LorcanaSymbols.STRENGTH, cardText)
 		# Support, first line if split
 		cardText = re.sub(fr"(^|\badd )their [^{LorcanaSymbols.STRENGTH}]{{1,2}} to", f"\\1their {LorcanaSymbols.STRENGTH} to", cardText, flags=re.MULTILINE)
 		# Support, second line if split (prevent hit on 'of this turn.' or '+2 this turn', which is unrelated to what we're correcting)
@@ -862,8 +862,6 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 		outputCard["artistsText"] = re.sub(r"\bPerez\b", "Pérez", outputCard["artistsText"])
 	elif outputCard["artistsText"].startswith("Niss ") or outputCard["artistsText"].startswith("Nilica "):
 		outputCard["artistsText"] = "M" + outputCard["artistsText"][1:]
-	elif re.search(r"\bAim[^è]\b", outputCard["artistsText"]):
-		outputCard["artistsText"] = re.sub(r"\bAim[^è]\b", "Aimè", outputCard["artistsText"])
 	elif GlobalConfig.language == Language.GERMAN:
 		# For some bizarre reason, the German parser reads some artist names as something completely different
 		if re.match(r"^ICHLER[GS]I?EN$", outputCard["artistsText"]):
@@ -872,6 +870,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 			outputCard["artistsText"] = "Lauren Levering"
 		outputCard["artistsText"] = outputCard["artistsText"].replace("Dösiree", "Désirée")
 		outputCard["artistsText"] = re.sub(r"Man[6e]+\b", "Mané", outputCard["artistsText"])
+	outputCard["artistsText"] = re.sub(r"\bAime\b", "Aimé", outputCard["artistsText"])
 	outputCard["artistsText"] = re.sub(r"\bPe[^ñ]+a\b", "Peña", outputCard["artistsText"])
 	if "“" in outputCard["artistsText"]:
 		# Simplify quotemarks
@@ -1106,7 +1105,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 			subtypes[subtypes.index(sevenDwarvesCheckTypes[0])] = " ".join(sevenDwarvesCheckTypes)
 		for subtypeIndex in range(len(subtypes) - 1, -1, -1):
 			subtype = subtypes[subtypeIndex]
-			if GlobalConfig.language in (Language.ENGLISH, Language.FRENCH) and subtype != "Floodborn" and re.match(r"^[EF][il][ao][aeo]d[^b]?b?[^b]?[aeo]r[an][e+-]?$", subtype):
+			if GlobalConfig.language in (Language.ENGLISH, Language.FRENCH) and subtype != "Floodborn" and re.match(r"^[EF][il][ao][aeo]d[^b]?b?[^b]?[aeo]r[an][es+-]?$", subtype):
 				_logger.debug(f"Correcting '{subtype}' to 'Floodborn'")
 				subtypes[subtypeIndex] = "Floodborn"
 			elif GlobalConfig.language == Language.ENGLISH and subtype != "Hero" and re.match(r"e?H[eo]r[aeos]", subtype):
@@ -1382,7 +1381,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 	if "story" in inputCard:
 		outputCard["story"] = inputCard["story"]
 	else:
-		outputCard["story"] = storyParser.getStoryNameForCard(outputCard, outputCard["id"])
+		outputCard["story"] = storyParser.getStoryNameForCard(outputCard, outputCard["id"], inputCard.get("searchable_keywords", None))
 	if "foil_type" in inputCard:
 		outputCard["foilTypes"] = ["None"] if inputCard["foil_type"] is None else [inputCard["foil_type"]]
 	elif not isExternalReveal:
