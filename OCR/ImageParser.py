@@ -210,7 +210,7 @@ class ImageParser:
 						yToCheck = min(textboxHeight - 1, y + 1)  # Check a few lines down to prevent weirdness with the edge of the label box
 						# Find the width of the label. Since accented characters can reach the top of the label, we need several light pixels in succession to be sure the label ended
 						successiveLightPixels: int = 0
-						for x in range(parseSettings.textboxOffset, textboxWidth):
+						for x in range(parseSettings.textboxOffset, textboxWidth - parseSettings.textboxRightOffset):
 							checkValue = greyTextboxImage[yToCheck, x]
 							if checkValue > 120:
 								successiveLightPixels += 1
@@ -261,8 +261,8 @@ class ImageParser:
 							continue
 						# If this line is too close to the previous one, it's probably the bottom line of the previous top line of the same label; skip it
 						if lastBottomY and lineRightY - lastBottomY < 80:
-							if hasFlavorText and lineRightY - lastBottomY < 10:
-								# It confused the flavor text separator for the start of a ability name label, remove the last added label
+							if hasFlavorText and labelCoords and lineRightY - lastBottomY < 10:
+								# It confused the flavor text separator for the start of an ability name label, remove the last added label
 								del labelCoords[-1]
 							continue
 						isTopLine = greyTextboxImage[lineRightY - 1, lineRightX] > greyTextboxImage[lineRightY + 1, lineRightX]  # Images use y,x
@@ -280,7 +280,7 @@ class ImageParser:
 		# Find the line dividing the abilities from the flavor text, if needed
 		flavorTextImage = None
 		flavorTextSeparatorY = textboxHeight
-		flavorTextLineDetectionCroppedImage = None
+		flavorTextLineDetectionCroppedImage: Union[None, cv2.Mat] = None
 		flavorTextEdgeDetectedImage = None
 		flavorTextGreyscaleImageWithLines = None
 		if (parseSettings.hasFlavorTextOverride or (parseSettings.hasFlavorTextOverride is None and hasFlavorText is not False)) and parseSettings.labelParsingMethod != ParseSettings.LABEL_PARSING_METHODS.FALLBACK_BY_LINES:
@@ -289,6 +289,8 @@ class ImageParser:
 			if labelCoords:
 				flavorTextImageTop = labelCoords[-1][1] + 5
 				flavorTextLineDetectionCroppedImage = greyTextboxImage[flavorTextImageTop:textboxHeight, 0:textboxWidth]
+			if parseSettings.textboxOffset or parseSettings.textboxRightOffset:
+				flavorTextLineDetectionCroppedImage = flavorTextLineDetectionCroppedImage[0:flavorTextLineDetectionCroppedImage.shape[0], parseSettings.textboxOffset:flavorTextLineDetectionCroppedImage.shape[1] - parseSettings.textboxRightOffset]
 			flavorTextEdgeDetectedImage = cv2.Canny(flavorTextLineDetectionCroppedImage, 50, 200)
 			lines = cv2.HoughLinesP(flavorTextEdgeDetectedImage, 1, math.pi / 180, 150, minLineLength=70)
 			if lines is None and hasFlavorText is True:
@@ -323,10 +325,10 @@ class ImageParser:
 					hasFlavorText = True
 					flavorTextSeparatorY += flavorTextImageTop
 					if flavorTextSeparatorY + _FLAVORTEXT_MARGIN >= textboxHeight:
-						self._logger.warning(f"Flavortext separator Y {flavorTextSeparatorY} plus margin {_FLAVORTEXT_MARGIN} is larger than textbox height {textboxHeight}")
+						self._logger.warning(f"Flavortext separator Y {flavorTextSeparatorY} plus margin {_FLAVORTEXT_MARGIN} is larger than textbox height {textboxHeight} in card {cardId}")
 						hasFlavorText = False
 					else:
-						flavorTextImage = self._convertToThresholdImage(greyTextboxImage[flavorTextSeparatorY + _FLAVORTEXT_MARGIN:textboxHeight, 0:textboxWidth], parseSettings.thresholdTextColor)
+						flavorTextImage = self._convertToThresholdImage(greyTextboxImage[flavorTextSeparatorY + _FLAVORTEXT_MARGIN:textboxHeight, parseSettings.textboxOffset:textboxWidth - parseSettings.textboxRightOffset], parseSettings.thresholdTextColor)
 						flavourText = self._imageToString(flavorTextImage)
 						result["flavorText"] = ImageAndText(flavorTextImage, flavourText)
 						self._logger.debug(f"{flavourText=}")
@@ -364,7 +366,7 @@ class ImageParser:
 
 			# There might be text above the label coordinates too (abilities text), especially if there aren't any labels. Get that text as well
 			if previousBlockTopY > 35:
-				remainingTextImage = self._convertToThresholdImage(greyTextboxImage[0:previousBlockTopY, parseSettings.textboxOffset:textboxWidth], parseSettings.thresholdTextColor)
+				remainingTextImage = self._convertToThresholdImage(greyTextboxImage[0:previousBlockTopY, parseSettings.textboxOffset:textboxWidth - parseSettings.textboxRightOffset], parseSettings.thresholdTextColor)
 				remainingText = self._imageToString(remainingTextImage)
 				if remainingText:
 					if parseSettings.labelParsingMethod == ParseSettings.LABEL_PARSING_METHODS.FALLBACK_WHITE_ABILITY_TEXT and re.search("[A-Z]{2,}", remainingText):
@@ -375,7 +377,7 @@ class ImageParser:
 							labelAndEffectText = remainingText[labelMatch.start():]
 							remainingText = remainingText[:labelMatch.start()].rstrip()
 							while labelAndEffectText:
-								effectMatch = re.search(fr"(([A-Z]|[ÀI|] )[a-z]|[0-9{LorcanaSymbols.EXERT}@©&]|G,)", labelAndEffectText, flags=re.DOTALL)
+								effectMatch = re.search(fr"(([A-Z]|[ÀI|] )[a-z]|[0-9{LorcanaSymbols.EXERT}@©&]|G ?[,—–-])", labelAndEffectText, flags=re.DOTALL)
 								if effectMatch:
 									labelText = labelAndEffectText[:effectMatch.start()]
 									effectText = labelAndEffectText[effectMatch.start():]
@@ -461,21 +463,16 @@ class ImageParser:
 		return ocrResult
 
 	@staticmethod
-	def _getSubImage(image, imageArea: ImageArea.ImageArea):
+	def _getSubImage(image, imageArea: ImageArea.ImageArea) -> cv2.Mat:
 		return image[imageArea.coords.top:imageArea.coords.bottom, imageArea.coords.left:imageArea.coords.right]
 
 	@staticmethod
-	def _convertToThresholdImage(greyscaleImage, textColour: ImageArea.TextColour):
+	def _convertToThresholdImage(greyscaleImage, textColour: ImageArea.TextColour) -> cv2.Mat:
 		threshold, thresholdImage = cv2.threshold(greyscaleImage, textColour.thresholdValue, 255, textColour.thresholdType)
 		return thresholdImage
 
 	@staticmethod
-	def _cv2ImageToPillowImage(cv2Image):
-		if cv2Image is None or cv2Image.size == 0:
-			# Journal de l'erreur et levée d'une exception plus explicite
-			import logging
-			logging.error("L'image source est vide ou non valide")
-			raise ValueError("L'image source est vide ou non valide. Vérifiez que le fichier image existe et n'est pas corrompu.")
+	def _cv2ImageToPillowImage(cv2Image: cv2.Mat) -> Image.Image:
 		return Image.fromarray(cv2.cvtColor(cv2Image, cv2.COLOR_BGR2RGB))
 
 	def _imageToString(self, image: cv2.Mat, isNumeric: bool = False, imageAreaName: str = None) -> str:

@@ -46,7 +46,7 @@ def correctText(cardText: str) -> str:
 	# Sometimes an extra character gets added after the closing quote mark or bracket from an inksplotch, remove that
 	cardText = re.sub(r"(?<=[”’)])\s.$", "", cardText, flags=re.MULTILINE)
 	# The 'exert' symbol often gets mistaken for a @ or G, correct that
-	cardText = re.sub(r"(?<![0-9s])(^|[\"“„ ])[(@Gg©€]{1,3}9?([ ,])", fr"\1{LorcanaSymbols.EXERT}\2", cardText, flags=re.MULTILINE)
+	cardText = re.sub(r"(?<![0-9s])(^|[\"“„ ])[(@Gg©€]{1,3}[89]?([ ,])", fr"\1{LorcanaSymbols.EXERT}\2", cardText, flags=re.MULTILINE)
 	cardText = re.sub(r"^([(&f]+À?|fà)? ?[-—](?=\s)", f"{LorcanaSymbols.EXERT} —", cardText)
 	# Some cards have a bulleted list, replace the start character with the separator symbol
 	cardText = re.sub(r"^[-+*«»¢.,‚]{1,2}(?= \w{2,} \w+)", LorcanaSymbols.SEPARATOR, cardText, flags=re.MULTILINE)
@@ -92,6 +92,7 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(r"\bteammates’( |$)", r"teammates'\1", cardText, flags=re.MULTILINE)
 		cardText = re.sub(r"\bplayers’( |$)", r"players'\1", cardText, flags=re.MULTILINE)
 		cardText = re.sub(r"\bopponents’( |$)", r"opponents'\1", cardText, flags=re.MULTILINE)
+		cardText = re.sub(r"\bIllumineers’( |$)", r"Illumineers'\1", cardText, flags=re.MULTILINE)
 		## Correct common phrases with symbols ##
 		# Ink payment discounts
 		cardText = re.sub(r"\bpay (\d) .?to\b", f"pay \\1 {LorcanaSymbols.INK} to", cardText)
@@ -119,6 +120,7 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(f"chosen character's( [^{LorcanaSymbols.LORE}{LorcanaSymbols.STRENGTH}])? this turn", f"chosen character's {LorcanaSymbols.STRENGTH} this turn", cardText)
 		# Common typos
 		cardText = re.sub(r"\bluminary\b", "Illuminary", cardText)
+		cardText = cardText.replace("I/lu", "Illu")
 		cardText = re.sub(r"([Dd])rawa ?card", r"\1raw a card", cardText)
 		cardText = re.sub(r"\bLt\b", "It", cardText)
 		cardText = re.sub(r"\b([Hh])ed\b", r"\1e'd", cardText)
@@ -131,6 +133,7 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(fr"^(\d) ?[{LorcanaSymbols.STRENGTH}O0](\s)(pour|de moins)\b", fr"\1 {LorcanaSymbols.INK}\2\3", cardText, flags=re.MULTILINE)
 		# Correct support reminder text
 		cardText = re.sub(r"(?<=ajouter sa )\W+(?= à celle)", LorcanaSymbols.STRENGTH, cardText)
+		cardText = re.sub(f"(?<=ajouter leur )[^{LorcanaSymbols.STRENGTH}](?= à celle)", LorcanaSymbols.STRENGTH, cardText)
 		# Correct Challenger/Offensif reminder text
 		cardText = re.sub(r"gagne \+(\d+) \.\)", fr"gagne +\1 {LorcanaSymbols.STRENGTH}.)", cardText)
 		# Cost discount text
@@ -143,6 +146,7 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(r"^‘", "“", cardText, flags=re.MULTILINE)
 		# "Il" often gets misread as "I!" or "[|"
 		cardText = re.sub(r"(?<![A-Z])[I|/[][!|]", "Il", cardText)
+		cardText = re.sub(r"(^|\s)[/\[I]+l+umineur", "\\1Illumineur", cardText)
 		# French always has a space before punctuation marks
 		cardText = re.sub(r"([^? ])!", r"\1 !", cardText)
 		cardText = re.sub(r"!(\w)", r"! \1", cardText)
@@ -265,7 +269,7 @@ def correctPunctuation(textToCorrect: str) -> str:
 	if correctedText.endswith(","):
 		correctedText = correctedText[:-1] + "."
 	if GlobalConfig.language == Language.ENGLISH:
-		correctedText = correctedText.replace("youre", "you're").replace("theyre", "they're")
+		correctedText = re.sub(r"\b([Tt]hey|[Yy]ou)re\b", r"\1're", correctedText)
 	elif GlobalConfig.language == Language.GERMAN:
 		# In German, ellipsis always have a space between words before and after it
 		if "…" in correctedText:
@@ -506,8 +510,8 @@ def createOutputFiles(onlyParseIds: Union[None, List[int]] = None, shouldShowIma
 	cardBans = JsonUtil.loadJsonWithNumberKeys(os.path.join("output", "CardBans.json"))
 
 	# Get the cards we don't have to parse (if any) from the previous generated file
-	fullCardList = []
-	cardIdsStored = []
+	fullCardList: List[Dict] = []
+	cardIdsStored: List[int] = []
 	outputFolder = os.path.join("output", "generated", GlobalConfig.language.code)
 	if onlyParseIds:
 		# Load the previous generated file to get the card data for cards that didn't change, instead of generating all cards
@@ -610,7 +614,7 @@ def createOutputFiles(onlyParseIds: Union[None, List[int]] = None, shouldShowIma
 	with open(os.path.join("output", f"baseSetData.json"), "r", encoding="utf-8") as baseSetDataFile:
 		setsData = json.load(baseSetDataFile)
 		for setCode in list(setsData.keys()):
-			if setsData[setCode]["names"][GlobalConfig.language.code]:
+			if setsData[setCode]["names"].get(GlobalConfig.language.code, None):
 				setsData[setCode]["name"] = setsData[setCode].pop("names")[GlobalConfig.language.code]
 			else:
 				_logger.warning(f"Name for set {setCode} is empty or doesn't exist for language code '{GlobalConfig.language.code}', not adding the set to the output files")
@@ -858,7 +862,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 		outputCard["artistsText"] = re.sub(r"Krysi.{1,2}ski", "Krysiński", outputCard["artistsText"])
 	elif "Cesar Vergara" in outputCard["artistsText"]:
 		outputCard["artistsText"] = outputCard["artistsText"].replace("Cesar Vergara", "César Vergara")
-	elif "Perez" in outputCard["artistsText"]:
+	elif "Roger Perez" in outputCard["artistsText"]:
 		outputCard["artistsText"] = re.sub(r"\bPerez\b", "Pérez", outputCard["artistsText"])
 	elif outputCard["artistsText"].startswith("Niss ") or outputCard["artistsText"].startswith("Nilica "):
 		outputCard["artistsText"] = "M" + outputCard["artistsText"][1:]
@@ -984,8 +988,11 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 
 		for remainingTextLine in remainingTextLines:
 			remainingTextLine = correctText(remainingTextLine)
+			if len(remainingTextLine) < 4:
+				_logger.info(f"Remaining text for card {_createCardIdentifier(outputCard)} {remainingTextLine!r} is too short, discarding")
+				continue
 			# Check if this is a keyword ability
-			if outputCard["type"] == GlobalConfig.translation.Character or outputCard["type"] == GlobalConfig.translation.Action:
+			if outputCard["type"] == GlobalConfig.translation.Character or outputCard["type"] == GlobalConfig.translation.Action or (parsedIdentifier.setCode == "Q2" and outputCard["type"] == GlobalConfig.translation.Location):
 				if remainingTextLine.startswith("(") and ")" in remainingText:
 					# Song cards have reminder text of how Songs work, and for instance 'Flotsam & Jetsam - Entangling Eels' (ID 735) has a bracketed phrase at the bottom
 					# Treat those as static abilities
@@ -1023,6 +1030,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 	if ocrResult.abilityLabels:
 		for abilityIndex in range(len(ocrResult.abilityLabels)):
 			abilityName = correctPunctuation(ocrResult.abilityLabels[abilityIndex].replace("‘", "'").replace("’", "'").replace("''", "'")).rstrip(":")
+			originalAbilityName = abilityName
 			abilityName = re.sub(r"(?<=\w) ?[.7|»”©\"]$", "", abilityName)
 			if GlobalConfig.language == Language.ENGLISH:
 				abilityName = abilityName.replace("|", "I")
@@ -1031,12 +1039,9 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 				abilityName = re.sub("A ?!(?=.{3,})", "AI", abilityName)
 				if "!" in abilityName or "?" in abilityName:
 					# French puts a space before an exclamation or question mark, add that in
-					abilityName, replacementCount = re.subn(r"(?<![?! ])([!?])", r" \1", abilityName)
-					if replacementCount > 0:
-						_logger.debug(f"Added a space before the exclamation or question mark in ability name '{abilityName}'")
-				abilityName, replacementCount = re.subn(r"\bCA\b", "ÇA", abilityName)
-				if replacementCount > 0:
-					_logger.debug(f"Corrected 'CA' to 'ÇA' in abilty name '{abilityName}'")
+					abilityName = re.sub(r"(?<![?! ])([!?])", r" \1", abilityName)
+				abilityName = re.sub(r"\bCA\b", "ÇA", abilityName)
+				abilityName = re.sub(r"\bTRES\b", "TRÈS", abilityName)
 			elif GlobalConfig.language == Language.GERMAN:
 				# It seems to misread a lot of ability names as ending with a period, correct that (unless it's ellipsis)
 				if abilityName.endswith(".") and not abilityName.endswith("..."):
@@ -1045,6 +1050,8 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 				abilityName = abilityName.replace("|", "I")
 				# It keeps reading 'IO' wrong
 				abilityName = re.sub("[1I]0", "IO", abilityName)
+			if abilityName != originalAbilityName:
+				_logger.info(f"Corrected ability name from {originalAbilityName!r} to {abilityName!r}")
 			abilityEffect = correctText(ocrResult.abilityTexts[abilityIndex])
 			abilities.append({
 				"name": abilityName,
@@ -1110,7 +1117,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 				subtypes[subtypeIndex] = "Floodborn"
 			elif GlobalConfig.language == Language.ENGLISH and subtype != "Hero" and re.match(r"e?H[eo]r[aeos]", subtype):
 				subtypes[subtypeIndex] = "Hero"
-			elif subtype == "IHlusion":
+			elif re.match("I?Hl?usion", subtype):
 				subtypes[subtypeIndex] = "Illusion"
 			elif GlobalConfig.language == Language.ITALIAN and subtype == "lena":
 				subtypes[subtypeIndex] = "Iena"
@@ -1161,6 +1168,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 		effectAtIndexIsFlavorText: int = cardDataCorrections.pop("_effectAtIndexIsFlavorText", -1)
 		externalLinksCorrection = cardDataCorrections.pop("externalLinks", None)
 		fullTextCorrection = cardDataCorrections.pop("fullText", None)
+		addNameToAbilityAtIndex: Union[None, List[int, str]] = cardDataCorrections.pop("_addNameToAbilityAtIndex", None)
 		moveAbilityAtIndexToIndex = cardDataCorrections.pop("_moveAbilityAtIndexToIndex", None)
 		splitAbilityNameAtIndex = cardDataCorrections.pop("_splitAbilityNameAtIndex", None)
 		for fieldName, correction in cardDataCorrections.items():
@@ -1192,6 +1200,16 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 			ability = outputCard["abilities"][splitAbilityNameAtIndex[0]]
 			ability["name"], ability["effect"] = re.split(splitAbilityNameAtIndex[1], ability["effect"], maxsplit=1)
 			_logger.info(f"Split ability name and effect at index {splitAbilityNameAtIndex[0]} into name {ability['name']!r} and effect {ability['effect']!r}")
+		# Sometimes ability names get missed, apply the correction to fix this
+		if addNameToAbilityAtIndex:
+			if addNameToAbilityAtIndex[0] >= len(outputCard["abilities"]):
+				_logger.error(f"Supplied name '{addNameToAbilityAtIndex[1]}' to add to ability at index {addNameToAbilityAtIndex[0]} of card {_createCardIdentifier(outputCard)}, but maximum ability index is {len(outputCard['abilities'])}")
+			elif outputCard["abilities"][addNameToAbilityAtIndex[0]].get("name", None):
+				_logger.error(f"Supplied name '{addNameToAbilityAtIndex[1]}' to add to ability at index {addNameToAbilityAtIndex[0]} of card {_createCardIdentifier(outputCard)}, but ability already has name '{outputCard['abilities'][addNameToAbilityAtIndex[0]]['name']}'")
+			else:
+				_logger.info(f"Adding ability name '{addNameToAbilityAtIndex[1]}' to ability index {addNameToAbilityAtIndex[0]} for card {_createCardIdentifier(outputCard)}")
+				outputCard["abilities"][addNameToAbilityAtIndex[0]]["name"] = addNameToAbilityAtIndex[1]
+
 		# Do this after the general corrections since one of those might add or split an effect
 		if effectAtIndexIsAbility != -1:
 			if "effects" not in outputCard:
@@ -1212,7 +1230,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 				_logger.error(f"Correction to move effect index {effectAtIndexIsAbility} to flavor text, but card {_createCardIdentifier(outputCard)} already has a 'flavorText' field")
 			else:
 				_logger.info(f"Moving effect index {effectAtIndexIsFlavorText} to flavor text")
-				outputCard["flavorText"] = outputCard["effects"].pop(effectAtIndexIsFlavorText)
+				outputCard["flavorText"] = correctPunctuation(outputCard["effects"].pop(effectAtIndexIsFlavorText))
 				if len(outputCard["effects"]) == 0:
 					del outputCard["effects"]
 
@@ -1286,7 +1304,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 				elif GlobalConfig.language == Language.FRENCH:
 					if ability["effect"].startswith("Une fois par tour, vous pouvez"):
 						ability["type"] = "activated"
-					elif (ability["effect"].startswith("Au début de chacun") or re.match(r"Au\sdébut\sde\svotre\stour\b", ability["effect"]) or ability["effect"].startswith("À la fin d") or
+					elif (ability["effect"].startswith("Au début de chacun") or re.match(r"Au\sdébut\sd[eu](\svotre)?\stour\b", ability["effect"]) or ability["effect"].startswith("À la fin d") or
 						re.search(r"(^L|\bl)orsqu(e|'une?|'il)\b", ability["effect"]) or re.search(r"(^À c|^C|,\sc)haque\sfois", ability["effect"]) or
 						re.match("Si (?!vous avez|un personnage)", ability["effect"]) or re.search("gagnez .+ pour chaque", ability["effect"]) or
 						re.search(r"une carte est\splacée", ability["effect"])):
@@ -1296,9 +1314,10 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 						ability["type"] = "activated"
 					elif (re.match(r"Wenn(\sdu)?\sdiese", ability["effect"]) or re.match(r"Wenn\seiner\sdeiner\sCharaktere", ability["effect"]) or re.search(r"(^J|\bj)edes\sMal\b", ability["effect"]) or
 						  re.match(r"Einmal\swährend\sdeines\sZuges\b", ability["effect"]) or ability["effect"].startswith("Einmal pro Zug, wenn") or
-						  re.search(r"(^Z|\bz)u\sBeginn\sdeines\sZuges\b", ability["effect"]) or re.match(r"Am\sEnde\s(deines|des)\sZuges", ability["effect"]) or
+						  re.search(r"(^Z|\bz)u\sBeginn\s(deines|von\s\w+)\sZug", ability["effect"]) or re.match(r"Am\sEnde\s(deines|des)\sZuges", ability["effect"]) or
 						  re.match(r"Falls\sdu\sGestaltwandel\sbenutzt\shas",ability["effect"]) or "wenn du eine Karte ziehst" in ability["effect"] or
-						  re.search(r"\bwährend\ser\seinen?(\s|\w)+herausfordert\b", ability["effect"]) or re.search(r"wenn\sdieser\sCharakter\szu\seinem\sOrt\sbewegt", ability["effect"])):
+						  re.search(r"\bwährend\ser\seinen?(\s|\w)+herausfordert\b", ability["effect"]) or re.search(r"wenn\sdieser\sCharakter\szu\seinem\sOrt\sbewegt", ability["effect"]) or
+						  re.match(r"Wenn\s\w+\sdiese[nrs]\s\w+\sausspielt", ability["effect"]) or re.match(r"Wenn\sdu\seine.+ausspielst", ability["effect"], flags=re.DOTALL)):
 						ability["type"] = "triggered"
 				elif GlobalConfig.language == Language.ITALIAN:
 					if re.match(r"Una\svolta\sper\sturno,\spuoi", ability["effect"]):
@@ -1310,7 +1329,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 
 				if abilityIndex in forceAbilityTypeAtIndex:
 					if forceAbilityTypeAtIndex[abilityIndex] == ability["type"]:
-						_logger.error(f"Ability at index {abilityIndex} should be corrected to '{forceAbilityTypeAtIndex[abilityIndex]}' but it is already that type")
+						_logger.error(f"Ability at index {abilityIndex} of {_createCardIdentifier(outputCard)} should be corrected to '{forceAbilityTypeAtIndex[abilityIndex]}' but it is already that type")
 					else:
 						ability["type"] = forceAbilityTypeAtIndex[abilityIndex]
 						_logger.info(f"Forcing ability type at index {abilityIndex} of card ID {outputCard['id']} to '{ability['type']}'")
