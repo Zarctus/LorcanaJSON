@@ -207,7 +207,7 @@ def correctText(cardText: str) -> str:
 		# In Song reminder text, it reads 'con costo 1 o' as 'con costo 10'
 		cardText = re.sub(r"(?<=con costo \d)0(?= [^o])", " o", cardText)
 		# Fix Song reminder Exert symbol
-		cardText = re.sub(r"(?<=\d o superiore può ).(?= per\scantare questa canzone gratis)", LorcanaSymbols.EXERT, cardText)
+		cardText = re.sub(r"(?<=\d\so superiore può ).(?= per\scantare questa canzone gratis)", LorcanaSymbols.EXERT, cardText)
 		# It misses the Strength symbol if it's at the end of a line
 		cardText = re.sub(r"(?<=Riceve \+\d)\n", f" {LorcanaSymbols.STRENGTH}\n", cardText)
 		# It frequently reads the Strength symbol as 'XX or a percentage sign' or leaves a closing bracket
@@ -617,7 +617,7 @@ def createOutputFiles(onlyParseIds: Union[None, List[int]] = None, shouldShowIma
 			if setsData[setCode]["names"].get(GlobalConfig.language.code, None):
 				setsData[setCode]["name"] = setsData[setCode].pop("names")[GlobalConfig.language.code]
 			else:
-				_logger.warning(f"Name for set {setCode} is empty or doesn't exist for language code '{GlobalConfig.language.code}', not adding the set to the output files")
+				_logger.info(f"Name for set {setCode} is empty or doesn't exist for language code '{GlobalConfig.language.code}', not adding the set to the output files")
 				del setsData[setCode]
 	outputDict["sets"] = setsData
 
@@ -1031,7 +1031,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 		for abilityIndex in range(len(ocrResult.abilityLabels)):
 			abilityName = correctPunctuation(ocrResult.abilityLabels[abilityIndex].replace("‘", "'").replace("’", "'").replace("''", "'")).rstrip(":")
 			originalAbilityName = abilityName
-			abilityName = re.sub(r"(?<=\w) ?[.7|»”©\"]$", "", abilityName)
+			abilityName = re.sub(r"(?<=\w) ?[.7|»”©(\"]$", "", abilityName)
 			if GlobalConfig.language == Language.ENGLISH:
 				abilityName = abilityName.replace("|", "I")
 				abilityName = re.sub("^l", "I", abilityName)
