@@ -74,6 +74,8 @@ def correctText(cardText: str) -> str:
 	if re.search(" [^?!.…”“0-9]$", cardText):
 		cardText = cardText[:-2]
 	cardText = re.sub(r"(?<=\bTe[ -]K)a\b", "ā", cardText)
+	# Floodborn characters have Shift, and a subtypes bar that drips ink, leading to erroneous character detection. Fix that
+	cardText = re.sub(fr"^[^\n]{{,15}}\n(?=(?:[A-Z]\w+[ -])?{GlobalConfig.translation.shift})", "", cardText)
 
 	if GlobalConfig.language == Language.ENGLISH:
 		cardText = re.sub("^‘", "“", cardText, flags=re.MULTILINE)
@@ -1214,15 +1216,16 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 		if effectAtIndexIsAbility != -1:
 			if "effects" not in outputCard:
 				_logger.error(f"Correction to move effect index {effectAtIndexIsAbility} to abilities, but card {_createCardIdentifier(outputCard)} doesn't have an 'effects' field")
-			if "abilities" not in outputCard:
-				outputCard["abilities"] = []
-			abilityNameForEffectIsAbility = ""
-			if isinstance(effectAtIndexIsAbility, list):
-				effectAtIndexIsAbility, abilityNameForEffectIsAbility = effectAtIndexIsAbility
-			_logger.info(f"Moving effect index {effectAtIndexIsAbility} to abilities")
-			outputCard["abilities"].append({"name": abilityNameForEffectIsAbility, "effect": outputCard["effects"].pop(effectAtIndexIsAbility)})
-			if len(outputCard["effects"]) == 0:
-				del outputCard["effects"]
+			else:
+				if "abilities" not in outputCard:
+					outputCard["abilities"] = []
+				abilityNameForEffectIsAbility = ""
+				if isinstance(effectAtIndexIsAbility, list):
+					effectAtIndexIsAbility, abilityNameForEffectIsAbility = effectAtIndexIsAbility
+				_logger.info(f"Moving effect index {effectAtIndexIsAbility} to abilities")
+				outputCard["abilities"].append({"name": abilityNameForEffectIsAbility, "effect": outputCard["effects"].pop(effectAtIndexIsAbility)})
+				if len(outputCard["effects"]) == 0:
+					del outputCard["effects"]
 		if effectAtIndexIsFlavorText != -1:
 			if "effects" not in outputCard:
 				_logger.error(f"Correction to move effect index {effectAtIndexIsAbility} to flavor text, but card {_createCardIdentifier(outputCard)} doesn't have an 'effects' field")
