@@ -73,6 +73,21 @@ _CORRECTIONS = {
 		"225": {
 			"Mickey Mouse - Playful Sorcerer": ("4", "225/204")
 		}
+	},
+	"Q2": {
+		"223": {
+			"Bolt - Superdog": ("7", "223/204"),
+			"Goofy - Groundbreaking Chef": ("8", "223/204")
+		},
+		"224": {
+			"Elsa - Ice Maker": ("7", "224/204"),
+			"Pinocchio - Strings Attached": ("8", "224/204")
+		}
+	},
+	"8": {
+		"154": {
+			"Olaf - Recapping the Story": ("8", "156/204")
+		}
 	}
 }
 
@@ -107,8 +122,12 @@ class ExternalLinksHandler:
 		setNameToCode = {}
 		setCodeToName = {}
 		for setCode, setData in setsData.items():
-			setNameToCode[setData["names"]["en"]] = setCode
-			setCodeToName[setCode] = setData["names"]["en"]
+			setName = setData["names"]["en"]
+			setNameToCode[setName] = setCode
+			setCodeToName[setCode] = setName
+			# CardTrader doesn't always keep the 'The' at the start, so store the name without that too
+			if setName.startswith("The "):
+				setNameToCode[setName.split(" ", 1)[1]] = setCode
 
 		# Get data from CardTrader, it includes Cardmarket and TCGplayer card IDs
 		headers = {"Authorization": "Bearer " + cardTraderToken}
