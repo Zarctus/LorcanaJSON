@@ -7,6 +7,7 @@ STRENGTH = "¤"  # Unicode \u00A4  HTML entities &#164;  &#xA4;  &curren;
 WILLPOWER = "⛉"  # Unicode \u26C9  HTML entities: &#9929;  &#x26C9;
 INKWELL = "◉"  # Unicode \u25C9 Not entirely accurate to the actual symbol (See card ID 789), but the closest I could find in Unicode
 SEPARATOR = "•"  # Unicode \u2022 HTML entities &#8226; &bull;
+SEPARATOR_STRING = f" {SEPARATOR} "  # Separator with a space at either side, gets used during parsing a lot
 
 
 # Ajoutez cette ligne à la fin du fichier, après la définition de tous les symboles individuels
