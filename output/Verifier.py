@@ -92,8 +92,10 @@ def compareInputToOutput(cardIdsToVerify: Union[List[int], None]):
 				inputRulesText = inputRulesText.replace(" \"", " “").replace("\" ", "” ")
 				# Sometimes there's no space between the previous ability text and the next label or ability, fix that
 				inputRulesText = re.sub(r"([).])([A-Z])", r"\1 \2", inputRulesText)
+				# Some cards have an m-dash instead of normal 'minus' dash in front of numbers
+				inputRulesText = re.sub(r"[–—](?=\d)", "-", inputRulesText)
 				if GlobalConfig.language == Language.ENGLISH:
-					inputRulesText = inputRulesText.replace("teammates’ ", "teammates' ").replace("players’ ", "players' ")
+					inputRulesText = inputRulesText.replace("teammates’ ", "teammates' ").replace("players’ ", "players' ").replace("Illumineers’ ", "Illumineers' ")
 				elif GlobalConfig.language == Language.FRENCH:
 					# Exclamation marks etc. should be preceded by a space
 					inputRulesText = re.sub(r"(?<=\w)([?!:])", r" \1", inputRulesText)
@@ -150,8 +152,10 @@ def compareInputToOutput(cardIdsToVerify: Union[List[int], None]):
 					cardDifferencesCount += 1
 					print(f"{outputCard['fullName']} (ID {cardId}, {outputCard['fullIdentifier']}): Mismatched count of open and close quotemarks in flavor text {outputFlavorText!r}")
 				outputFlavorText = outputFlavorText.replace("“", "").replace("”", "").replace("„", "").replace("‘", "'").replace("’", "'")
-				# Don't put a space between ellipses and the next word if there's a newline after the ellipsis
+				# Don't put a space between ellipses and the next word if there's a newline after the ellipsis...
 				outputFlavorText = re.sub(r"(?<=\.\.\.)\n(?=\w)", "", outputFlavorText)
+				# ... nor if the ellipsis are the first thing on a newline
+				outputFlavorText = re.sub(r"(?<=\w)\n(?=\.\.\.)", "", outputFlavorText)
 				# Newlines are spaces in the input text, except after connecting dashes just before a newline
 				outputFlavorText = outputFlavorText.replace("-\n", "-").replace("—\n", "—").replace("\n", " ")
 			else:
@@ -177,7 +181,7 @@ def compareInputToOutput(cardIdsToVerify: Union[List[int], None]):
 			cardDifferencesCount += 1
 			print(f"{outputCard['fullName']} (ID {outputCard['id']}) should have a non-promo ID field, but it doesn't")
 
-		inputIdentifier = inputCard["card_identifier"].replace(" ", LorcanaSymbols.SEPARATOR_STRING)
+		inputIdentifier = inputCard["card_identifier"].replace(" ", LorcanaSymbols.SEPARATOR_STRING).replace("1TFC", "1 TFC")
 		outputIdentifier = outputCard["fullIdentifier"].lstrip("0")  # The input identifiers don't have the leading zero, so strip it here too
 		if inputIdentifier != outputIdentifier:
 			cardDifferencesCount += 1
