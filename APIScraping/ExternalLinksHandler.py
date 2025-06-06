@@ -18,10 +18,10 @@ _CARD_MARKET_LANGUAGE_TO_CODE = {
 	Language.ITALIAN: 5
 }
 _CARD_MARKET_CARD_GROUP_TO_NAME = {
-	"C1": "D23-Expo-2024-Collectors-Set",
-	"D23": "D23-Expo-2024-Collectors-Set",
-	"P1": "Promos",
-	"P2": "Promos-Year-2"
+    "C1": "D23-Expo-2024-Collectors-Set",
+    "D23": "D23-Expo-2024-Collectors-Set",
+    "P1": "Promos",
+    "P2": "Promos-Year-2"
 }
 # This regex gets the card number and the 'group' from the full identifier. Use a regex instead of splitting to handle the earlier cards with different formatting
 _IDENTIFIER_REGEX = re.compile(r"\b(?P<identifier>(?P<number>\d+[a-z]?)/(?P<cardGroup>[A-Z0-9]+))\b")
@@ -206,8 +206,13 @@ class ExternalLinksHandler:
 					cardNumber += "/P1"
 				if cardNumber in cardsBySet[cardSetCodeToUse]:
 					# Card with this number already exists
-					_LOGGER.error(f"While adding card '{card['name']}' from set '{expansionName}', already found card with number {cardNumber} in setcode {cardSetCodeToUse}")
-					continue
+					existingCard = cardsBySet[cardSetCodeToUse][cardNumber]
+					if existingCard.get("cardTraderId") == card["id"]:
+						_LOGGER.warning(f"Duplicate card '{card['name']}' with number {cardNumber} in setcode {cardSetCodeToUse} already exists with the same CardTrader ID. Skipping.")
+						continue
+					else:
+						_LOGGER.error(f"While adding card '{card['name']}' from set '{expansionName}', already found card with number {cardNumber} in setcode {cardSetCodeToUse} with a different CardTrader ID.")
+						continue
 				# Only add ID fields if they exist
 				cardExternalLinks = {}
 				if card["card_market_ids"]:
@@ -232,7 +237,10 @@ class ExternalLinksHandler:
 					elif cardSetCodeToUse != setCodeToUse:
 						cardmarketCategoryName = _convertStringToUrlValue(setCodeToName[cardSetCodeToUse])
 					elif re.search("/[A-Z]", card["fixed_properties"]["collector_number"]):
-						cardCategory = card["fixed_properties"]["collector_number"].split("/", 1)[1]
+						cardCategory = card["fixed_properties"]["collector_number"].split("/", 1)[1].strip()
+						if cardCategory not in _CARD_MARKET_CARD_GROUP_TO_NAME:  # Correction d'indentation ici
+							_LOGGER.error(f"Card category '{cardCategory}' not found in _CARD_MARKET_CARD_GROUP_TO_NAME")
+							continue
 						cardmarketCategoryName = _CARD_MARKET_CARD_GROUP_TO_NAME[cardCategory]
 					else:
 						cardmarketCategoryName = _convertStringToUrlValue(expansionName)
