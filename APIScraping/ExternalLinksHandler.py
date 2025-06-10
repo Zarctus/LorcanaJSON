@@ -238,9 +238,6 @@ class ExternalLinksHandler:
 						cardmarketCategoryName = _convertStringToUrlValue(setCodeToName[cardSetCodeToUse])
 					elif re.search("/[A-Z]", card["fixed_properties"]["collector_number"]):
 						cardCategory = card["fixed_properties"]["collector_number"].split("/", 1)[1].strip()
-						if cardCategory not in _CARD_MARKET_CARD_GROUP_TO_NAME:  # Correction d'indentation ici
-							_LOGGER.error(f"Card category '{cardCategory}' not found in _CARD_MARKET_CARD_GROUP_TO_NAME")
-							continue
 						cardmarketCategoryName = _CARD_MARKET_CARD_GROUP_TO_NAME[cardCategory]
 					else:
 						cardmarketCategoryName = _convertStringToUrlValue(expansionName)
