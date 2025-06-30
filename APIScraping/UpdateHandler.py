@@ -11,7 +11,9 @@ _logger = logging.getLogger("LorcanaJSON")
 
 def checkForNewCardData(newCardCatalog: Dict = None, fieldsToIgnore: List[str] = None, includeCardChanges: bool = True, ignoreOrderChanges: bool = True) -> UpdateCheckResult:
 	# We need to find the old cards by ID, so set up a dict
-	oldCards = {}
+	oldCards: Dict[int, Dict] = {}
+	# Keep track of known card fields, so we can notice if new cards add new fields
+	knownCardFieldNames: List[str] = []
 	pathToCardCatalog = os.path.join("downloads", "json", f"carddata.{GlobalConfig.language.code}.json")
 	if os.path.isfile(pathToCardCatalog):
 		with open(pathToCardCatalog, "r") as cardCatalogFile:
@@ -21,6 +23,9 @@ def checkForNewCardData(newCardCatalog: Dict = None, fieldsToIgnore: List[str] =
 				card = cardlist.pop()
 				cardId = card["culture_invariant_id"]
 				oldCards[cardId] = card
+				for fieldName in card:
+					if fieldName not in knownCardFieldNames:
+						knownCardFieldNames.append(fieldName)
 	else:
 		_logger.info("No card catalog stored, so full update is needed")
 
@@ -35,8 +40,14 @@ def checkForNewCardData(newCardCatalog: Dict = None, fieldsToIgnore: List[str] =
 			cardId = card["culture_invariant_id"]
 			if cardId not in oldCards:
 				updateCheckResult.addNewCard(card)
+				# Check if this new card has fields we don't know about
+				for fieldName in card:
+					if fieldName not in knownCardFieldNames:
+						updateCheckResult.newCardFields.append(fieldName)
+						knownCardFieldNames.append(fieldName)
 			elif includeCardChanges:
-				oldCard = oldCards[cardId]
+				# Remove the card from the old card dictionary, so we know which ones are left over (if any)
+				oldCard = oldCards.pop(cardId)
 				if not fieldsToIgnore or "image_urls" not in fieldsToIgnore:
 					# Specifically check for image URLs, because if the checksum changed, we may need to redownload it
 					imageUrl = None
@@ -90,6 +101,9 @@ def checkForNewCardData(newCardCatalog: Dict = None, fieldsToIgnore: List[str] =
 									raise ValueError(f"Unsupported list entry type '{type(newListEntry)}'")
 					elif fieldValue != oldCard[fieldName]:
 						updateCheckResult.addCardChange(card, ChangeType.UPDATED_FIELD, fieldName, oldCard[fieldName], fieldValue)
+	# If there are old cards left over, they were removed from the new cardstore; list those
+	for cardId, card in oldCards.items():
+		updateCheckResult.addRemovedCard(card)
 
 	# Check if new cards have been added to the external reveals file
 	externalRevealsFileName = f"externalCardReveals.{GlobalConfig.language.code}.json"

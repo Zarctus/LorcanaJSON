@@ -13,6 +13,8 @@ class UpdateCheckResult:
 	def __init__(self):
 		self.newCards: List[BasicCard] = []
 		self.changedCards: List[ChangedCard] = []
+		self.removedCards: List[BasicCard] = []
+		self.newCardFields: List[str] = []
 		self.possibleChangedImages: List[ChangedCard] = []
 
 	def addNewCard(self, newCard: Dict, nameOverride: Union[None, str] = None):
@@ -21,11 +23,14 @@ class UpdateCheckResult:
 	def addCardChange(self, changedCard: Dict, changeType: ChangeType, fieldName: str, oldFieldValue: Any, newFieldValue: Any):
 		self.changedCards.append(ChangedCard(changedCard, changeType, fieldName, oldFieldValue, newFieldValue))
 
+	def addRemovedCard(self, removedCard: Dict):
+		self.removedCards.append(BasicCard(removedCard))
+
 	def addPossibleImageChange(self, card, oldImageUrl, newImageUrl):
 		self.possibleChangedImages.append(ChangedCard(card, ChangeType.UPDATED_FIELD, "image_urls", oldImageUrl, newImageUrl))
 
 	def hasChanges(self) -> bool:
-		if self.newCards or self.changedCards or self.possibleChangedImages:
+		if self.newCards or self.changedCards or self.removedCards or self.possibleChangedImages:
 			return True
 		return False
 
