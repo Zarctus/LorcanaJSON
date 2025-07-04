@@ -16,6 +16,7 @@ class UpdateCheckResult:
 		self.removedCards: List[BasicCard] = []
 		self.newCardFields: List[str] = []
 		self.possibleChangedImages: List[ChangedCard] = []
+		self.newSets: List[str] = []
 
 	def addNewCard(self, newCard: Dict, nameOverride: Union[None, str] = None):
 		self.newCards.append(BasicCard(newCard, nameOverride))
@@ -29,18 +30,30 @@ class UpdateCheckResult:
 	def addPossibleImageChange(self, card, oldImageUrl, newImageUrl):
 		self.possibleChangedImages.append(ChangedCard(card, ChangeType.UPDATED_FIELD, "image_urls", oldImageUrl, newImageUrl))
 
-	def hasChanges(self) -> bool:
+	def hasCardChanges(self) -> bool:
+		"""
+		:return: True if there are any changes to cards specfically, False otherwise
+		"""
 		if self.newCards or self.changedCards or self.removedCards or self.possibleChangedImages:
 			return True
 		return False
 
+	def hasChanges(self) -> bool:
+		"""
+		:return: True if there are any updates, False otherwise
+		"""
+		if self.newSets or self.hasCardChanges():
+			return True
+		return False
+
 	def listChangeCounts(self) -> str:
-		return f"{len(self.newCards):,} new cards, {len(self.changedCards):,} changed cards, {len(self.possibleChangedImages):,} possible image changes"
+		return f"{len(self.newCards):,} new cards, {len(self.changedCards):,} changed cards, {len(self.removedCards):,} removed cards, {len(self.possibleChangedImages):,}, {len(self.newCardFields):,} new card fields, possible image changes, {len(self.newSets)} new sets"
 
 
 class BasicCard:
 	def __init__(self, card: Dict, nameOverride: Union[None, str] = None):
 		self.id: int = card["culture_invariant_id"]
+		self.identifier = card["card_identifier"]
 		if nameOverride:
 			self.name = nameOverride
 		else:
@@ -49,7 +62,7 @@ class BasicCard:
 				self.name += " - " + card["subtitle"]
 
 	def toString(self) -> str:
-		return f"{self.name} (ID {self.id})"
+		return f"{self.name} ({self.identifier}, ID {self.id})"
 
 	def __str__(self) -> str:
 		return self.toString()

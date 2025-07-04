@@ -11,6 +11,7 @@ from util.IdentifierParser import Identifier
 _LOGGER = logging.getLogger("LorcanaJSON")
 _EXTERNAL_LINKS_FILE_PATH = os.path.join("output", "generated", "externalLinks.json")
 _CARD_TRADER_LORCANA_ID = 18
+_CARD_TRADER_SINGLES_CATEGORY_ID = 214  # CardTrader also sells inserts, puzzle cards, etc; This is the ID of actual cards, skip anything else
 _CARD_MARKET_LANGUAGE_TO_CODE = {
 	Language.ENGLISH: 1,
 	Language.FRENCH: 2,
@@ -18,10 +19,10 @@ _CARD_MARKET_LANGUAGE_TO_CODE = {
 	Language.ITALIAN: 5
 }
 _CARD_MARKET_CARD_GROUP_TO_NAME = {
-    "C1": "D23-Expo-2024-Collectors-Set",
-    "D23": "D23-Expo-2024-Collectors-Set",
-    "P1": "Promos",
-    "P2": "Promos-Year-2"
+	"C1": "Disney-Lorcana-Challenge-Promos",
+	"D23": "D23-Expo-2024-Collectors-Set",
+	"P1": "Promos",
+	"P2": "Promos-Year-2"
 }
 # This regex gets the card number and the 'group' from the full identifier. Use a regex instead of splitting to handle the earlier cards with different formatting
 _IDENTIFIER_REGEX = re.compile(r"\b(?P<identifier>(?P<number>\d+[a-z]?)/(?P<cardGroup>[A-Z0-9]+))\b")
@@ -56,7 +57,7 @@ _CORRECTIONS = {
 			"Baymax - Armored Companion": ("Promos", "9/C1")
 		},
 		"10": {
-			"A Whole New World": ("Promos", "C1")
+			"A Whole New World": ("Promos", "10/C1")
 		},
 		"24/P2": {
 			"Hiro Hamada - Armor Designer": ("Promos", "24A/P2")
@@ -99,7 +100,7 @@ def _convertStringToUrlValue(inputString: str, shouldRemoveMidwordDashes: bool =
 	outputString = inputString
 	if shouldRemoveMidwordDashes:
 		outputString = re.sub(r"(?<=\S)-(?=\S)", "", outputString)
-	outputString = re.sub(" - ?", "-", outputString)
+	outputString = re.sub(" [-–] ?", "-", outputString)
 	outputString = outputString.replace("é", "e")
 	outputString = re.sub("[:!.,'’ā]+", "", outputString)
 	outputString = outputString.replace(" & ", " ").replace("\"", " ")
@@ -194,7 +195,8 @@ class ExternalLinksHandler:
 
 			for card in expansionCardsRequest.json():
 				# The data also includes boosters, pins, marketing cards, and other non-card items, skip those
-				if not card["fixed_properties"] or not card["fixed_properties"]["collector_number"] or card["version"] == "Oversized" or card["fixed_properties"].get("lorcana_rarity", None) == "Oversized":
+				if (not card["fixed_properties"] or not card["fixed_properties"]["collector_number"] or card["version"] in ("Cinese Exclusive", "Chinese Exclusive", "Oversized",) or
+						card["fixed_properties"].get("lorcana_rarity", None) == "Oversized" or card["category_id"] != _CARD_TRADER_SINGLES_CATEGORY_ID):
 					continue
 				cardNumber: str = card["fixed_properties"]["collector_number"].lstrip("0")
 				# Some Enchanted cards are listed with an 'a' at the end for some reason. Remove that, being careful not to remove it from cards that do need it (Like 'Dalmatian Puppy - Tail Wagger' ID 436)
@@ -209,51 +211,43 @@ class ExternalLinksHandler:
 					cardNumber += "/P1"
 				if cardNumber in cardsBySet[cardSetCodeToUse]:
 					# Card with this number already exists
-					existingCard = cardsBySet[cardSetCodeToUse][cardNumber]
-					if existingCard.get("cardTraderId") == card["id"]:
-						_LOGGER.warning(f"Duplicate card '{card['name']}' with number {cardNumber} in setcode {cardSetCodeToUse} already exists with the same CardTrader ID. Skipping.")
-						continue
-					else:
-						_LOGGER.error(f"While adding card '{card['name']}' from set '{expansionName}', already found card with number {cardNumber} in setcode {cardSetCodeToUse} with a different CardTrader ID.")
-						continue
+					_LOGGER.error(f"While adding card '{card['name']}' from set '{expansionName}', already found card with number {cardNumber} in setcode {cardSetCodeToUse}")
+					continue
 				# Only add ID fields if they exist
 				cardExternalLinks = {}
 				if card["card_market_ids"]:
 					if len(card["card_market_ids"]) > 1:
 						_LOGGER.warning(f"Found {len(card['card_market_ids']):,} Cardmarket IDs for card '{card['name']}' (CardTrader ID {card['id']}) in expansion {expansionName} (ID {expansion['id']}), using first one")
 					cardExternalLinks["cardmarketId"] = card["card_market_ids"][0]
-				if card["tcg_player_id"]:
-					cardExternalLinks["tcgPlayerId"] = card["tcg_player_id"]
-				# Only create an entry if we have IDs
-				if cardExternalLinks:
-					cardExternalLinks["cardTraderId"] = card["id"]
-					# Create URLs
-					cardExternalLinks["cardTraderUrl"] = f"https://www.cardtrader.com/cards/{cardExternalLinks['cardTraderId']}"
-
-					cardmarketCategoryName: str = None
-					if cardSetCodeToUse == "Promos" and "/P2" in card["fixed_properties"]["collector_number"]:
-						cardmarketCategoryName = "Promos-Year-2"
-					elif cardSetCodeToUse == "Q1":
-						cardmarketCategoryName = "Ursulas-Deck"
-					elif expansionName == "Lorcana Challenge Promos":
-						cardmarketCategoryName = "Disney-Lorcana-Challenge-Promos"
-					elif cardSetCodeToUse != setCodeToUse:
-						cardmarketCategoryName = _convertStringToUrlValue(setCodeToName[cardSetCodeToUse])
-					elif re.search("/[A-Z]", card["fixed_properties"]["collector_number"]):
-						cardCategory = card["fixed_properties"]["collector_number"].split("/", 1)[1].strip()
+				cardmarketCategoryName: str = ""
+				if cardSetCodeToUse == "Promos" and "/P2" in card["fixed_properties"]["collector_number"]:
+					cardmarketCategoryName = "Promos-Year-2"
+				elif cardSetCodeToUse == "Q1":
+					cardmarketCategoryName = "Ursulas-Deck"
+				elif expansionName == "Lorcana Challenge Promos":
+					cardmarketCategoryName = "Disney-Lorcana-Challenge-Promos"
+				elif cardSetCodeToUse != setCodeToUse:
+					cardmarketCategoryName = _convertStringToUrlValue(setCodeToName[cardSetCodeToUse])
+				elif re.search("/[A-Z]", card["fixed_properties"]["collector_number"]):
+					cardCategory = card["fixed_properties"]["collector_number"].split("/", 1)[1].strip()
+					if cardCategory in _CARD_MARKET_CARD_GROUP_TO_NAME:
 						cardmarketCategoryName = _CARD_MARKET_CARD_GROUP_TO_NAME[cardCategory]
 					else:
-						cardmarketCategoryName = _convertStringToUrlValue(expansionName)
-					cardmarketCardName = _convertStringToUrlValue(card["name"], cardSetCodeToUse in ("5", "7"))  # For some reason, they remove mid-word dashes (like in 'mid-word') only in cardnames from Set 5, correct for that
+						_LOGGER.error(f"Unknown CardMarket Group {cardCategory!r} for card {cardNumber} {card['name']!r}")
+				else:
+					cardmarketCategoryName = _convertStringToUrlValue(expansionName)
+				if cardmarketCategoryName:
+					cardmarketCardName = _convertStringToUrlValue(card["name"], cardSetCodeToUse in ("5", "7"))  # For some reason, they remove mid-word dashes (like in 'mid-word') only in cardnames from some sets, correct for that
 					cardExternalLinks["cardmarketUrl"] = f"https://www.cardmarket.com/{{languageCode}}/Lorcana/Products/Singles/{cardmarketCategoryName}/{cardmarketCardName}{{cardmarketVersionSuffix}}?language={{cardmarketLanguageCode}}"
 
-					if cardExternalLinks.get("tcgPlayerId", None):
-						cardExternalLinks["tcgPlayerUrl"] = f"https://www.tcgplayer.com/product/{cardExternalLinks['tcgPlayerId']}"
+				if card["tcg_player_id"]:
+					cardExternalLinks["tcgPlayerId"] = card["tcg_player_id"]
+					cardExternalLinks["tcgPlayerUrl"] = f"https://www.tcgplayer.com/product/{cardExternalLinks['tcgPlayerId']}"
 
-					# Sort the entries
-					cardExternalLinks = {key: cardExternalLinks[key] for key in sorted(cardExternalLinks)}
-					# and store 'em
-					cardsBySet[cardSetCodeToUse][cardNumber] = cardExternalLinks
+				# Sort the entries
+				cardExternalLinks = {key: cardExternalLinks[key] for key in sorted(cardExternalLinks)}
+				# and store 'em
+				cardsBySet[cardSetCodeToUse][cardNumber] = cardExternalLinks
 
 		# Downloading and parsing data is done, list differences with the previous file (if it exists)
 		if os.path.isfile(_EXTERNAL_LINKS_FILE_PATH):
@@ -313,13 +307,14 @@ class ExternalLinksHandler:
 
 		# Some parts need extra filling in
 		# Cardmarket lists Enchanted cards with '-V2' at the end, and the non-Enchanted version with '-V1'. Promo versions are either '-V1' or '-V2'
-		cardmarketVersionSuffix = ""
-		if hasEnchanted:
-			cardmarketVersionSuffix = "-V1"
-		elif parsedIdentifier.number > 204:
-			cardmarketVersionSuffix = "-V2"
-		elif parsedIdentifier.variant:
-			variantVersion = string.ascii_lowercase.index(parsedIdentifier.variant.lower()) + 1
-			cardmarketVersionSuffix = f"-V{variantVersion}"
-		cardExternalLinks["cardmarketUrl"] = cardExternalLinks["cardmarketUrl"].format(languageCode=GlobalConfig.language.code, cardmarketLanguageCode=self._cardmarketLanguageCode, cardmarketVersionSuffix=cardmarketVersionSuffix)
+		if "cardmarketUrl" in cardExternalLinks:
+			cardmarketVersionSuffix = ""
+			if hasEnchanted:
+				cardmarketVersionSuffix = "-V1"
+			elif parsedIdentifier.number > 204:
+				cardmarketVersionSuffix = "-V2"
+			elif parsedIdentifier.variant:
+				variantVersion = string.ascii_lowercase.index(parsedIdentifier.variant.lower()) + 1
+				cardmarketVersionSuffix = f"-V{variantVersion}"
+			cardExternalLinks["cardmarketUrl"] = cardExternalLinks["cardmarketUrl"].format(languageCode=GlobalConfig.language.code, cardmarketLanguageCode=self._cardmarketLanguageCode, cardmarketVersionSuffix=cardmarketVersionSuffix)
 		return cardExternalLinks

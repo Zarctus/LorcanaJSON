@@ -610,7 +610,7 @@ def createOutputFiles(onlyParseIds: Union[None, List[int]] = None, shouldShowIma
 	os.makedirs(outputFolder, exist_ok=True)
 	# Add metadata
 	metaDataDict = {"formatVersion": FORMAT_VERSION, "generatedOn": datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S"), "language": GlobalConfig.language.code}
-	outputDict = {"metadata": metaDataDict}
+	outputDict: Dict[str, Union[Dict, List]] = {"metadata": metaDataDict}
 
 	# Add set data
 	with open(os.path.join("output", f"baseSetData.json"), "r", encoding="utf-8") as baseSetDataFile:
@@ -1287,7 +1287,7 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 			else:
 				# Non-keyword ability, determine which type it is
 				ability["type"] = "static"
-				activatedAbilityMatch = re.search("[ \n][-–—][ \n]", ability["effect"])
+				activatedAbilityMatch = re.search(r"(\s)([-–—])(\s)", ability["effect"])
 
 				# Activated abilities require a cost, a dash, and then an effect
 				# Some static abilities give characters such an activated ability, don't trigger on that
@@ -1355,8 +1355,19 @@ def _parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, enchanted
 					if newlineAfterLabelIndex == abilityIndex:
 						_logger.error(f"Ability at index {newlineAfterLabelIndex} is set to get a newline after its ability name, but it doesn't have a name")
 				if "costsText" in ability:
-					# Since we don't know the exact type of separating dash, get it from the regex
-					ability["fullText"] += ability["costsText"] + activatedAbilityMatch.group(0)
+					# Usually we want to get the specific type of cost separator dash from the input data, but sometimes that's wrong
+					costSeparatorDash = None
+					if GlobalConfig.language == Language.GERMAN:
+						if parsedIdentifier.setCode == "1":
+							costSeparatorDash = "–"  # en-dash, \u2013
+						elif parsedIdentifier.setCode == "5":
+							costSeparatorDash = "—"  # em-dash, \u2014
+					if not costSeparatorDash:
+						if "rules_text" in inputCard:
+							costSeparatorDash = re.search(r"\s([-–—])\s", inputCard["rules_text"]).group(1)
+						else:
+							costSeparatorDash = activatedAbilityMatch.group(2)
+					ability["fullText"] += ability["costsText"] + activatedAbilityMatch.group(1) + costSeparatorDash + activatedAbilityMatch.group(3)
 					ability["costsText"] = ability["costsText"].replace("\n", " ")
 					ability["costs"] = ability["costsText"].split(", ")
 				ability["fullText"] += ability["effect"]

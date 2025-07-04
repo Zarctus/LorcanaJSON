@@ -121,13 +121,20 @@ def checkForNewCardData(newCardCatalog: Dict = None, fieldsToIgnore: List[str] =
 				if card["culture_invariant_id"] not in existingIds:
 					updateCheckResult.addNewCard(card, "[external]")
 
+	# Check if new sets have been added
+	if len(oldCardCatalog["card_sets"]) != len(newCardCatalog["card_sets"]):
+		oldNames = [s["name"] for s in oldCardCatalog["card_sets"]]
+		for newSetData in newCardCatalog["card_sets"]:
+			if newSetData["name"] not in oldNames:
+				updateCheckResult.newSets.append(newSetData["name"])
+
 	return updateCheckResult
 
 def createOutputIfNeeded(onlyCreateOnNewCards: bool, cardFieldsToIgnore: List[str] = None, shouldShowImages: bool = False):
 	cardCatalog = RavensburgerApiHandler.retrieveCardCatalog()
 	updateCheckResult: UpdateCheckResult = checkForNewCardData(cardCatalog, cardFieldsToIgnore, includeCardChanges=not onlyCreateOnNewCards)
-	if not updateCheckResult.hasChanges():
-		_logger.info(f"No catalog updates, not running output generator")
+	if not updateCheckResult.hasCardChanges():
+		_logger.info(f"No card updates, not running output generator")
 		return
 	_logger.info(f"Found {updateCheckResult.listChangeCounts()}")
 	idsToParse = [card.id for card in updateCheckResult.newCards]

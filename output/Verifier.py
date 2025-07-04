@@ -125,6 +125,7 @@ def compareInputToOutput(cardIdsToVerify: Union[List[int], None]):
 				inputFlavorText: str = inputCard["flavor_text"].replace("\u00a0", "").replace("‘", "'").replace("’", "'").replace("<", "").replace(">", "").rstrip()
 				# '%' seems to be a substitute for a newline character
 				inputFlavorText = inputFlavorText.replace("—%", "—")
+				inputFlavorText = re.sub("%— (?=[A-Z])", " —", inputFlavorText)
 				inputFlavorText = re.sub(r"(?<!\d) ?% ?", " ", inputFlavorText)
 				inputFlavorText = inputFlavorText.replace("  ", " ")
 				if inputFlavorText.endswith(" ERRATA"):
@@ -136,7 +137,7 @@ def compareInputToOutput(cardIdsToVerify: Union[List[int], None]):
 					# Use the ellipsis character instead of three separate periods
 					inputFlavorText = inputFlavorText.replace("...", "…")
 				if GlobalConfig.language == Language.FRENCH:
-					inputFlavorText = re.sub(r"(?<=\w)([?!:])", r" \1", inputFlavorText)
+					inputFlavorText = re.sub(r"(?<=\w|’|')([?!:])", r" \1", inputFlavorText)
 				elif GlobalConfig.language == Language.GERMAN:
 					# Quote attribution uses the wrong dash and doesn't have a space in the input text, but it does on the card. Ignore the difference
 					# The second set use a short n-dash instead of a long m-dash, correct for that
@@ -242,7 +243,7 @@ def compareInputToOutput(cardIdsToVerify: Union[List[int], None]):
 			if outputCard["fullText"] or englishCard["fullText"]:
 				for symbol in LorcanaSymbols.ALL_SYMBOLS:
 					expectedCount = englishCard["fullText"].count(symbol)
-					if GlobalConfig.language == Language.FRENCH and symbol == "¤" and "Soutien" in outputCard["fullText"]:
+					if GlobalConfig.language == Language.FRENCH and symbol == "¤" and re.search(r"Soutien.+\(", outputCard["fullText"], flags=re.DOTALL):
 						# While most languages use two strength symbols in the Support reminder text, French uses just one. To prevent false positives and negatives, adjust our expectations
 						expectedCount -= 1
 					if symbolCountChange and symbol in symbolCountChange:
