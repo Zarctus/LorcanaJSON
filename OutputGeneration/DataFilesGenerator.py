@@ -1,14 +1,13 @@
 import copy, datetime, hashlib, json, logging, multiprocessing.pool, os, re, threading, time, zipfile
 import xml.etree.ElementTree as xmlElementTree
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Union
 
 import GlobalConfig
 from APIScraping.ExternalLinksHandler import ExternalLinksHandler
-from OCR import ImageParser, OcrCacheHandler
-from OCR.OcrResult import OcrResult
-from output.StoryParser import StoryParser
-from util import IdentifierParser, JsonUtil, Language, LorcanaSymbols
-
+from OCR import ImageParser
+from OutputGeneration import SingeCardDataGenerator
+from OutputGeneration.StoryParser import StoryParser
+from util import CardUtil, JsonUtil
 
 _logger = logging.getLogger("LorcanaJSON")
 FORMAT_VERSION = "2.1.5"
@@ -19,8 +18,8 @@ _ABILITY_TYPE_CORRECTION_FIELD_TO_ABILITY_TYPE: Dict[str, str] = {"_forceAbility
 # The card parser is run in threads, and each thread needs to initialize its own ImageParser (otherwise weird errors happen in Tesseract)
 # Store each initialized ImageParser in its own thread storage
 _threadingLocalStorage = threading.local()
-_threadingLocalStorage.imageParser = None  # Simplement None, pas besoin d'annotation de type ici
-_threadingLocalStorage.externalIdsHandler = None
+_threadingLocalStorage.imageParser: ImageParser.ImageParser = None
+_threadingLocalStorage.externalIdsHandler: ExternalLinksHandler = None
 
 def correctText(cardText: str) -> str:
 	"""
@@ -427,8 +426,8 @@ def createOutputFiles(onlyParseIds: Union[None, List[int]] = None, shouldShowIma
 	with open(cardCatalogPath, "r", encoding="utf-8") as inputFile:
 		inputData = json.load(inputFile)
 
-	cardDataCorrections: Dict[int, Dict[str, List[str, str]]] = JsonUtil.loadJsonWithNumberKeys(os.path.join("output", "outputDataCorrections.json"))
-	correctionsFilePath = os.path.join("output", f"outputDataCorrections_{GlobalConfig.language.code}.json")
+	cardDataCorrections: Dict[int, Dict[str, List[str, str]]] = JsonUtil.loadJsonWithNumberKeys(os.path.join("OutputGeneration", "data", "outputDataCorrections", "outputDataCorrections.json"))
+	correctionsFilePath = os.path.join("OutputGeneration", "data", "outputDataCorrections", f"outputDataCorrections_{GlobalConfig.language.code}.json")
 	if os.path.isfile(correctionsFilePath):
 		for cardId, corrections in JsonUtil.loadJsonWithNumberKeys(correctionsFilePath).items():
 			if cardId in cardDataCorrections:
@@ -459,7 +458,7 @@ def createOutputFiles(onlyParseIds: Union[None, List[int]] = None, shouldShowIma
 			# Some promo cards are listed as Enchanted-rarity, so don't store those promo cards as Enchanted too
 			elif card["rarity"] == "ENCHANTED":
 				if card["deck_building_id"] in enchantedDeckbuildingIds:
-					_logger.info(f"Card {_createCardIdentifier(card)} is Enchanted, but its deckbuilding ID already exists in the Enchanteds list, pointing to ID {enchantedDeckbuildingIds[card['deck_building_id']]}, not storing the ID")
+					_logger.info(f"Card {CardUtil.createCardIdentifier(card)} is Enchanted, but its deckbuilding ID already exists in the Enchanteds list, pointing to ID {enchantedDeckbuildingIds[card['deck_building_id']]}, not storing the ID")
 				else:
 					enchantedDeckbuildingIds[card["deck_building_id"]] = card["culture_invariant_id"]
 			elif parsedIdentifier.number > 204:
@@ -503,18 +502,18 @@ def createOutputFiles(onlyParseIds: Union[None, List[int]] = None, shouldShowIma
 	del enchantedDeckbuildingIds
 	del promoDeckBuildingIds
 
-	historicDataFilePath = os.path.join("output", f"historicData_{GlobalConfig.language.code}.json")
+	historicDataFilePath = os.path.join("OutputGeneration", "data", "historicData", f"historicData_{GlobalConfig.language.code}.json")
 	if os.path.isfile(historicDataFilePath):
 		historicData = JsonUtil.loadJsonWithNumberKeys(historicDataFilePath)
 	else:
 		historicData = {}
 
-	cardBans = JsonUtil.loadJsonWithNumberKeys(os.path.join("output", "CardBans.json"))
+	cardBans = JsonUtil.loadJsonWithNumberKeys(os.path.join("OutputGeneration", "data", "CardBans.json"))
 
 	# Get the cards we don't have to parse (if any) from the previous generated file
 	fullCardList: List[Dict] = []
 	cardIdsStored: List[int] = []
-	outputFolder = os.path.join("output", "generated", GlobalConfig.language.code)
+	outputFolder = os.path.join("output", GlobalConfig.language.code)
 	if onlyParseIds:
 		# Load the previous generated file to get the card data for cards that didn't change, instead of generating all cards
 		outputFilePath = os.path.join(outputFolder, "allCards.json")
@@ -559,7 +558,7 @@ def createOutputFiles(onlyParseIds: Union[None, List[int]] = None, shouldShowIma
 					_logger.error(f"Card ID {cardId} is not in the ID parse list, but it's also not in the previous dataset. Skipping parsing for now, but this results in incomplete datafiles, so it's strongly recommended to rerun with this card ID included")
 					continue
 				try:
-					results.append(pool.apply_async(_parseSingleCard, (inputCard, cardTypeText, imageFolder, enchantedNonEnchantedIds.get(cardId, None), promoNonPromoIds.get(cardId, None), variantsDeckBuildingIds.get(inputCard["deck_building_id"]),
+					results.append(pool.apply_async(SingeCardDataGenerator.parseSingleCard, (inputCard, cardTypeText, imageFolder, _threadingLocalStorage, enchantedNonEnchantedIds.get(cardId, None), promoNonPromoIds.get(cardId, None), variantsDeckBuildingIds.get(inputCard["deck_building_id"]),
 												  cardDataCorrections.pop(cardId, None), cardToStoryParser, False, historicData.get(cardId, None), cardBans.pop(cardId, None), shouldShowImages)))
 					cardIdsStored.append(cardId)
 				except Exception as e:
@@ -577,7 +576,7 @@ def createOutputFiles(onlyParseIds: Union[None, List[int]] = None, shouldShowIma
 			if cardId in cardIdsStored:
 				_logger.debug(f"Card ID {cardId} is defined in the official file and in the external file, skipping the external data")
 				continue
-			results.append(pool.apply_async(_parseSingleCard, (externalCard, externalCard["type"], imageFolder, enchantedNonEnchantedIds.get(cardId, None), promoNonPromoIds.get(cardId, None), variantsDeckBuildingIds,
+			results.append(pool.apply_async(SingeCardDataGenerator.parseSingleCard, (externalCard, externalCard["type"], imageFolder, _threadingLocalStorage, enchantedNonEnchantedIds.get(cardId, None), promoNonPromoIds.get(cardId, None), variantsDeckBuildingIds,
 															   cardDataCorrections.pop(cardId, None), cardToStoryParser, True, historicData.get(cardId, None), cardBans.pop(cardId, None), shouldShowImages)))
 		missing_images = []
 		for result in results:
@@ -613,7 +612,7 @@ def createOutputFiles(onlyParseIds: Union[None, List[int]] = None, shouldShowIma
 	outputDict: Dict[str, Union[Dict, List]] = {"metadata": metaDataDict}
 
 	# Add set data
-	with open(os.path.join("output", f"baseSetData.json"), "r", encoding="utf-8") as baseSetDataFile:
+	with open(os.path.join("OutputGeneration", "data", "baseSetData.json"), "r", encoding="utf-8") as baseSetDataFile:
 		setsData = json.load(baseSetDataFile)
 		for setCode in list(setsData.keys()):
 			if setsData[setCode]["names"].get(GlobalConfig.language.code, None):
@@ -648,7 +647,7 @@ def createOutputFiles(onlyParseIds: Union[None, List[int]] = None, shouldShowIma
 	for card in fullCardList:
 		idToCard[card["id"]] = card
 	# Get the deck data
-	with open(os.path.join("output", "baseDeckData.json"), "r", encoding="utf-8") as deckFile:
+	with open(os.path.join("OutputGeneration", "data", "baseDeckData.json"), "r", encoding="utf-8") as deckFile:
 		decksData = json.load(deckFile)
 	simpleDeckFilePaths = []
 	fullDeckFilePaths = []
@@ -710,7 +709,7 @@ def createOutputFiles(onlyParseIds: Union[None, List[int]] = None, shouldShowIma
 	cardsElement = xmlElementTree.SubElement(rootElement, "cards")
 	for card in outputDict["cards"]:
 		if "images" not in card or "full" not in card["images"]:
-			_logger.error(f"Card {_createCardIdentifier(card)} does not have an image stored, not adding it to the Cockatrice XML")
+			_logger.error(f"Card {CardUtil.createCardIdentifier(card)} does not have an image stored, not adding it to the Cockatrice XML")
 			continue
 		cardElement = xmlElementTree.SubElement(cardsElement, "card")
 		xmlElementTree.SubElement(cardElement, "name").text = card["fullName"]
@@ -1461,16 +1460,3 @@ def _saveZippedFile(outputZipfilePath: str, filePathsToZip: List[str]):
 		for filePathToZip in filePathsToZip:
 			outputZipfile.write(filePathToZip, os.path.basename(filePathToZip))
 	_createMd5ForFile(outputZipfilePath)
-
-def _toTitleCase(s: str) -> str:
-	s = re.sub(r"(?:^| |\n|\(|-| '| d')([a-z])(?!')", lambda m: m.group(0).upper(), s.lower())
-	toLowerCaseWords = None
-	if GlobalConfig.language == Language.ENGLISH:
-		toLowerCaseWords = (" A ", " At ", " In ", " Into ", " Of ", " The ", " To ")
-	elif GlobalConfig.language == Language.FRENCH:
-		toLowerCaseWords = (" D'", " De ", " Des ", " Du ")
-	if toLowerCaseWords:
-		for toLowerCaseWord in toLowerCaseWords:
-			if toLowerCaseWord in s:
-				s = s.replace(toLowerCaseWord, toLowerCaseWord.lower())
-	return s

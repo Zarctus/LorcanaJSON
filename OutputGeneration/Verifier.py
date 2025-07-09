@@ -10,7 +10,7 @@ def compareInputToOutput(cardIdsToVerify: Union[List[int], None]):
 	if not os.path.isfile(inputFilePath):
 		print("Input file does not exist. Please run the 'download' action for the specified language first")
 		return
-	outputFilePath = os.path.join("output", "generated", GlobalConfig.language.code, "allCards.json")
+	outputFilePath = os.path.join("output", GlobalConfig.language.code, "allCards.json")
 	if not os.path.isfile(outputFilePath):
 		print("Output file does not exist. Please run the 'parse' action for the specified language first")
 		return
@@ -23,7 +23,7 @@ def compareInputToOutput(cardIdsToVerify: Union[List[int], None]):
 	englishRarities = ()
 	currentLanguageRarities = ()
 	if GlobalConfig.language != Language.ENGLISH:
-		englishOutputFilePath = os.path.join("output", "generated", Language.ENGLISH.code, "allCards.json")
+		englishOutputFilePath = os.path.join("output", Language.ENGLISH.code, "allCards.json")
 		if os.path.isfile(englishOutputFilePath):
 			with open(englishOutputFilePath, "r", encoding="utf-8") as englishOutputFile:
 				englishOutputCardStore = json.load(englishOutputFile)
@@ -42,7 +42,7 @@ def compareInputToOutput(cardIdsToVerify: Union[List[int], None]):
 
 	# Some of the data in the input file is wrong, which leads to false positives. Get override values here, to prevent that
 	# It's organised by language, then by card ID, then by inputCard field, where the value is a pair of strings (regex match and correction), or a new number if it's a numeric field
-	overridesFilePath = os.path.join("output", f"verifierOverrides_{GlobalConfig.language.code}.json")
+	overridesFilePath = os.path.join("OutputGeneration", "data", "verifier", f"verifierOverrides_{GlobalConfig.language.code}.json")
 	if os.path.isfile(overridesFilePath):
 		inputOverrides = JsonUtil.loadJsonWithNumberKeys(overridesFilePath)
 		print(f"Overrides file found, loaded {len(inputOverrides):,} input overrides")
@@ -261,6 +261,10 @@ def compareInputToOutput(cardIdsToVerify: Union[List[int], None]):
 			if currentLanguageRarities.index(outputCard["rarity"]) != englishRarities.index(englishCard["rarity"]):
 				cardDifferencesCount += 1
 				print(f"{cardId}: {GlobalConfig.language.englishName} rarity is {englishRarities[currentLanguageRarities.index(outputCard['rarity'])]} ({outputCard['rarity']}) but English rarity is {englishCard['rarity']}")
+			# Compare Card Market URLs, except for the language code (Other external links are always the same, since they're based on IDs)
+			if "cardmarketUrl" in outputCard["externalLinks"] and outputCard["externalLinks"]["cardmarketUrl"][:-1].replace(f"/{GlobalConfig.language.code}/", "/en/") != englishCard["externalLinks"]["cardmarketUrl"][:-1]:
+				cardDifferencesCount += 1
+				print(f"{cardId}: Cardmarket URL differs; {GlobalConfig.language.englishName} is {outputCard['externalLinks']['cardmarketUrl']}, English is {englishCard['externalLinks']['cardmarketUrl']}")
 
 	print(f"----------\nFound {cardDifferencesCount:,} difference{'' if cardDifferencesCount == 1 else 's'} between input and output")
 
