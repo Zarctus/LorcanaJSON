@@ -5,6 +5,7 @@ import GlobalConfig
 from OCR import OcrCacheHandler
 from OCR.OcrResult import OcrResult
 from OutputGeneration import TextCorrection, StoryParser
+from OutputGeneration.RelatedCardsCollator import RelatedCards
 from util import CardUtil, IdentifierParser, Language, LorcanaSymbols
 
 _logger = logging.getLogger("LorcanaJSON")
@@ -14,9 +15,8 @@ _KEYWORD_REGEX_WITHOUT_REMINDER = re.compile(r"^[A-Z][a-z]{2,}( \d)?$")
 _ABILITY_TYPE_CORRECTION_FIELD_TO_ABILITY_TYPE: Dict[str, str] = {"_forceAbilityIndexToActivated": "activated", "_forceAbilityIndexToKeyword": "keyword", "_forceAbilityIndexToStatic": "static", "_forceAbilityIndexToTriggered": "triggered"}
 
 
-def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLocalStorage, enchantedNonEnchantedId: Union[int, None], promoNonPromoId: Union[int, List[int], None],
-					variantIds: Union[List[int], None], cardDataCorrections: Dict, storyParser: StoryParser, isExternalReveal: bool, historicData: Union[None, List[Dict]],
-					bannedSince: Union[None, str] = None, shouldShowImage: bool = False) -> Union[Dict, None]:
+def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLocalStorage, relatedCards: RelatedCards, cardDataCorrections: Dict, storyParser: StoryParser, isExternalReveal: bool, historicData: Optional[List[Dict]],
+					bannedSince: Optional[str] = None, shouldShowImage: bool = False) -> Optional[Dict]:
 	# Store some default values
 	outputCard: Dict[str, Union[str, int, List, Dict]] = {
 		"id": inputCard["culture_invariant_id"],
@@ -44,11 +44,11 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 	outputCard["code"] = _CARD_CODE_LOOKUP[cardCodeDigits[0]] + _CARD_CODE_LOOKUP[cardCodeDigits[1]]
 
 	# Get required data by parsing the card image
-	parsedIdentifier: Union[None, IdentifierParser.Identifier] = None
+	parsedIdentifier: Optional[IdentifierParser.Identifier] = None
 	if "card_identifier" in inputCard:
 		parsedIdentifier = IdentifierParser.parseIdentifier(inputCard["card_identifier"])
 
-	ocrResult: OcrResult = None
+	ocrResult: Optional[OcrResult] = None
 	if GlobalConfig.useCachedOcr and not GlobalConfig.skipOcrCache:
 		ocrResult = OcrCacheHandler.getCachedOcrResult(outputCard["id"])
 
@@ -84,10 +84,6 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 
 	# Get the set and card numbers from the identifier
 	outputCard["number"] = parsedIdentifier.number
-	if parsedIdentifier.variant:
-		outputCard["variant"] = parsedIdentifier.variant
-		if variantIds:
-			outputCard["variantIds"] = [variantId for variantId in variantIds if variantId != outputCard["id"]]
 	outputCard["setCode"] = parsedIdentifier.setCode
 
 	# Always get the artist from the parsed data, since in the input data it often only lists the first artist when there's multiple, so it's not reliable
@@ -196,13 +192,25 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 		outputCard["images"] = {"full": inputCard["imageUrl"]}
 	else:
 		_logger.error(f"Card {CardUtil.createCardIdentifier(outputCard)} does not contain any image URLs")
-	# If the card is Enchanted or has an Enchanted equivalent, store that
-	if enchantedNonEnchantedId:
-		outputCard["nonEnchantedId" if outputCard["rarity"] == GlobalConfig.translation.ENCHANTED else "enchantedId"] = enchantedNonEnchantedId
-	# If the card is a promo card, store the non-promo ID
-	# If the card has promo version, store the promo IDs
-	if promoNonPromoId:
-		outputCard["promoIds" if isinstance(promoNonPromoId, list) else "nonPromoId"] = promoNonPromoId
+
+	# Store relations to other cards, like (non-)Enchanted and (non-)Promo cards
+	otherRelatedCards = relatedCards.getOtherRelatedCards(outputCard["setCode"], outputCard["id"])
+	if otherRelatedCards.enchantedId:
+		outputCard["enchantedId"] = otherRelatedCards.enchantedId
+	elif otherRelatedCards.nonEnchantedId:
+		outputCard["nonEnchantedId"] = otherRelatedCards.nonEnchantedId
+	if otherRelatedCards.nonPromoId:
+		outputCard["nonPromoId"] = otherRelatedCards.nonPromoId
+	elif otherRelatedCards.promoIds:
+		outputCard["promoIds"] = otherRelatedCards.promoIds
+	if otherRelatedCards.otherVariantIds:
+		outputCard["variantIds"] = otherRelatedCards.otherVariantIds
+		outputCard["variant"] = parsedIdentifier.variant
+	if otherRelatedCards.reprintedAsIds:
+		outputCard["reprintedAsIds"] = otherRelatedCards.reprintedAsIds
+	elif otherRelatedCards.reprintOfId:
+		outputCard["reprintOfId"] = otherRelatedCards.reprintOfId
+
 	# Store the different parts of the card text, correcting some values if needed
 	if ocrResult.flavorText:
 		flavorText = TextCorrection.correctText(ocrResult.flavorText)
@@ -388,12 +396,12 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 		if subtypes:
 			outputCard["subtypes"] = subtypes
 	# Card-specific corrections
-	externalLinksCorrection: Union[None, List[str]] = None  # externalLinks depends on correct fullIdentifier, which may have a correction, but it also might need a correction itself. So store it for now, and correct it later
-	fullTextCorrection: Union[None, List[str]] = None  # Since the fullText gets created as the last step, if there is a correction for it, save it for later
+	externalLinksCorrection: Optional[List[str]] = None  # externalLinks depends on correct fullIdentifier, which may have a correction, but it also might need a correction itself. So store it for now, and correct it later
+	fullTextCorrection: Optional[List[str]] = None  # Since the fullText gets created as the last step, if there is a correction for it, save it for later
 	forceAbilityTypeAtIndex: Dict[int, str] = {}  # index to ability type
 	newlineAfterLabelIndex: int = -1
 	mergeEffectIndexWithPrevious: int = -1
-	moveAbilityAtIndexToIndex: Union[List[int, int], None] = None
+	moveAbilityAtIndexToIndex: Optional[List[int, int]] = None
 	if cardDataCorrections:
 		if cardDataCorrections.pop("_moveKeywordsLast", False):
 			if "abilities" not in outputCard or "effect" not in outputCard["abilities"][-1]:
@@ -422,7 +430,7 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 		effectAtIndexIsFlavorText: int = cardDataCorrections.pop("_effectAtIndexIsFlavorText", -1)
 		externalLinksCorrection = cardDataCorrections.pop("externalLinks", None)
 		fullTextCorrection = cardDataCorrections.pop("fullText", None)
-		addNameToAbilityAtIndex: Union[None, List[int, str]] = cardDataCorrections.pop("_addNameToAbilityAtIndex", None)
+		addNameToAbilityAtIndex: Optional[List[int, str]] = cardDataCorrections.pop("_addNameToAbilityAtIndex", None)
 		moveAbilityAtIndexToIndex = cardDataCorrections.pop("_moveAbilityAtIndexToIndex", None)
 		splitAbilityNameAtIndex = cardDataCorrections.pop("_splitAbilityNameAtIndex", None)
 		for fieldName, correction in cardDataCorrections.items():
@@ -499,7 +507,7 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 	if "abilities" in outputCard:
 		for abilityIndex in range(len(outputCard["abilities"])):
 			ability: Dict = outputCard["abilities"][abilityIndex]
-			if ability.get("type", None) == "keyword" or ("type" not in ability and not ability.get("name", None) and (_KEYWORD_REGEX.match(ability.get("fullText", ability["effect"])) or  _KEYWORD_REGEX_WITHOUT_REMINDER.match(ability.get("fullText", ability["effect"])))):
+			if ability.get("type", None) == "keyword" or ("type" not in ability and not ability.get("name", None) and (_KEYWORD_REGEX.match(ability.get("fullText", ability["effect"])) or _KEYWORD_REGEX_WITHOUT_REMINDER.match(ability.get("fullText", ability["effect"])))):
 				# Clean up some mistakes from if an effect got corrected into a keyword ability
 				if "fullText" not in ability:
 					ability["fullText"] = ability["effect"]
@@ -566,7 +574,7 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 					elif (re.match(r"Wenn(\sdu)?\sdiese", ability["effect"]) or re.match(r"Wenn\seiner\sdeiner\sCharaktere", ability["effect"]) or re.search(r"(^J|\bj)edes\sMal\b", ability["effect"]) or
 						  re.match(r"Einmal\swährend\sdeines\sZuges\b", ability["effect"]) or ability["effect"].startswith("Einmal pro Zug, wenn") or
 						  re.search(r"(^Z|\bz)u\sBeginn\s(deines|von\s\w+)\sZug", ability["effect"]) or re.match(r"Am\sEnde\s(deines|des)\sZuges", ability["effect"]) or
-						  re.match(r"Falls\sdu\sGestaltwandel\sbenutzt\shas",ability["effect"]) or "wenn du eine Karte ziehst" in ability["effect"] or
+						  re.match(r"Falls\sdu\sGestaltwandel\sbenutzt\shas", ability["effect"]) or "wenn du eine Karte ziehst" in ability["effect"] or
 						  re.search(r"\bwährend\ser\seinen?(\s|\w)+herausfordert\b", ability["effect"]) or re.search(r"wenn\sdieser\sCharakter\szu\seinem\sOrt\sbewegt", ability["effect"]) or
 						  re.match(r"Wenn\s\w+\sdiese[nrs]\s\w+\sausspielt", ability["effect"]) or re.match(r"Wenn\sdu\seine.+ausspielst", ability["effect"], flags=re.DOTALL)):
 						ability["type"] = "triggered"
