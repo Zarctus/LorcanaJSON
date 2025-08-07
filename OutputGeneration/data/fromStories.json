@@ -131,6 +131,15 @@
     "matchingNames": ["Beagle Boys", "Della Duck", "Dewey", "Ducktales", "Flintheart Glomgold", "Gizmoduck", "Gyro Gearloose", "Huey", "Lena Sabrewing", "Louie", "Lucky Dime", "Magica De Spell", "Poe De Spell", "Scrooge", "Scrooge McDuck", "Webby Vanderquack"],
     "matchingIds": [636]
   },
+  "dumbo": {
+    "displayNames": {
+      "de": "Dumbo, der fliegende Elefant",
+      "en": "Dumbo",
+      "fr": "Dumbo, l'éléphant volant",
+      "it": "Dumbo - L'elefante volante"
+    },
+    "matchingNames": ["Dumbo", "Timothy Q. Mouse"]
+  },
   "encanto": {
     "displayNames": {
       "de": "Encanto",
@@ -162,6 +171,15 @@
     },
     "matchingNames": ["Anna", "Arendelle", "Bruni", "Duke of Weselton", "Elsa", "Grand Pabbie", "Hans", "Honeymaren", "Iduna", "Kristoff", "Marshmellow", "Olaf", "Ryder", "Sven", "The Nokk", "Yelana"],
     "matchingIds": [63, 163, 200, 415, 720, 857, 997, 998, 1085, 1188, 1610, 1611, 1653, 1745, 1748]
+  },
+  "goofymovie": {
+    "displayNames": {
+      "de": "Der Goofy Film",
+      "en": "A Goofy Movie",
+      "fr": "Dingo et Max",
+      "it": "In viaggio con Pippo"
+    },
+    "matchingNames": ["I2I", "Max", "Powerline"]
   },
   "greatmousedetective": {
     "displayNames": {

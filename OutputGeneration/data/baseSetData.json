@@ -217,11 +217,34 @@
       "fr": "Lueurs dans le Profondeurs",
       "it": "Sussurri nel Pozzo"
     },
+    "prereleaseDate": "2025-11-07",
+    "releaseDate": "2025-11-14",
+    "hasAllCards": false,
+    "type": "expansion",
+    "number": 10,
+    "allowedInFormats": {
+      "Core": {
+        "allowed": false,
+        "rotationGroup": 3
+      },
+      "Infinity": {
+        "allowed": false
+      }
+    },
+    "allowedInTournamentsFromDate": "2025-11-28"
+  },
+  "11": {
+    "names": {
+      "de": "Winterzauber",
+      "en": "Winterspell",
+      "fr": "Givresort",
+      "it": "Incanto d'Inverno"
+    },
     "prereleaseDate": null,
     "releaseDate": null,
     "hasAllCards": false,
     "type": "expansion",
-    "number": 10,
+    "number": 11,
     "allowedInFormats": {
       "Core": {
         "allowed": false,
