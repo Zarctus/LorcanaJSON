@@ -74,7 +74,12 @@ def downloadImagesIfUpdated(cardCatalog: Dict, cardIdsToCheck: List[int]) -> Lis
 			cardId = card["culture_invariant_id"]
 			if cardId not in cardIdsToCheck:
 				continue
+			if GlobalConfig.language.uppercaseCode not in card["card_identifier"]:
+				continue
 			localImagePath = os.path.join("downloads", "images", GlobalConfig.language.code, f"{cardId}.jpg")
+			if not os.path.isfile(localImagePath):
+				_logger.warning(f"Image '{localImagePath}' for ID {cardId} doesn't exist locally, while it was expected to exist. Skipping")
+				continue
 			with open(localImagePath, "rb") as localImageFile:
 				localImageBytes = localImageFile.read()
 				localImageChecksum = hashlib.md5(localImageBytes).hexdigest()
