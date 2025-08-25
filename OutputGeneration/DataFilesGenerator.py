@@ -12,7 +12,7 @@ from OutputGeneration.StoryParser import StoryParser
 from util import CardUtil, IdentifierParser, JsonUtil
 
 _logger = logging.getLogger("LorcanaJSON")
-FORMAT_VERSION = "2.2.0"
+FORMAT_VERSION = "2.2.1"
 # The card parser is run in threads, and each thread needs to initialize its own ImageParser (otherwise weird errors happen in Tesseract)
 # Store each initialized ImageParser in its own thread storage
 _threadingLocalStorage = threading.local()
@@ -309,7 +309,7 @@ def _saveFile(outputFilePath: str, dictToSave: Dict, createZip: bool = True):
 
 def _zipFile(outputFilePath: str):
 	outputZipFilePath = outputFilePath + ".zip"
-	with zipfile.ZipFile(outputZipFilePath, "w", compression=zipfile.ZIP_LZMA, strict_timestamps=False) as outputZipfile:
+	with zipfile.ZipFile(outputZipFilePath, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9, strict_timestamps=False) as outputZipfile:
 		outputZipfile.write(outputFilePath, os.path.basename(outputFilePath))
 	_createMd5ForFile(outputZipFilePath)
 
@@ -319,7 +319,7 @@ def _createMd5ForFile(filePath: str):
 		md5File.write(fileHash)
 
 def _saveZippedFile(outputZipfilePath: str, filePathsToZip: List[str]):
-	with zipfile.ZipFile(outputZipfilePath, "w", compression=zipfile.ZIP_LZMA, strict_timestamps=False) as outputZipfile:
+	with zipfile.ZipFile(outputZipfilePath, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9, strict_timestamps=False) as outputZipfile:
 		for filePathToZip in filePathsToZip:
 			outputZipfile.write(filePathToZip, os.path.basename(filePathToZip))
 	_createMd5ForFile(outputZipfilePath)

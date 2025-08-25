@@ -22,12 +22,15 @@ class ParseSettings:
 	cardLayout: CardLayout.CardLayout = None
 	characterCardLayout: CardLayout.CardLayout = None
 	locationCardLayout: CardLayout.CardLayout = None
-	textboxOffset: int = 0
-	textboxRightOffset: int = 0
+	textboxOffset: int = 0  # Shrinks the textbox from the left by this many pixels
+	textboxRightOffset: int = 0  # Shrinks the textbox from the right by this many pixels
 	labelParsingMethod: LABEL_PARSING_METHODS = LABEL_PARSING_METHODS.DEFAULT
 	thresholdTextColor: ImageArea.TextColour = ImageArea.TEXT_COLOUR_BLACK
 	labelTextColor: ImageArea.TextColour = ImageArea.TEXT_COLOUR_WHITE
+	labelStartThreshold: int = 105  # Pixel values lower than this indicate a label started (labels are darker than the background)
+	labelEndThreshold: int = 110  # Pixel values higher than this indicate a label ended
 	labelMaskColor: Tuple[int, int, int] = _WHITE
+	typeImageTextColorOverride: Optional[ImageArea.TextColour] = None  # If a different type image text color should be used than default for the card layout, set it here
 	parseIdentifier: bool = False
 	getIdentifierFromCard: bool = False
 	# Force some checks that could fail or be wrong on some cards. 'None' means they're not overridden, setting them to 'True' or 'False' uses those values instead of whatever is normally determined
@@ -36,7 +39,7 @@ class ParseSettings:
 	isItemOverride: Optional[bool] = None
 
 	def __post_init__(self):
-		# Set layouts to defaults here, because we can't set them on class-level since they can't be mutalbe
+		# Set layouts to defaults here, because we can't set them on class-level since they can't be mutable
 		if self.cardLayout is None:
 			self.cardLayout = CardLayout.DEFAULT
 		if self.characterCardLayout is None:
@@ -48,11 +51,13 @@ class ParseSettings:
 _DEFAULT_PARSE_SETTINGS = ParseSettings()
 _DEFAULT_ENCHANTED_PARSE_SETTINGS = ParseSettings(CardLayout.ENCHANTED, CardLayout.ENCHANTED_CHARACTER, CardLayout.ENCHANTED_LOCATION)
 _DEFAULT_NEW_ENCHANTED_PARSE_SETTINGS = ParseSettings(CardLayout.NEW_ENCHANTED, CardLayout.NEW_ENCHANTED_CHARACTER, CardLayout.NEW_ENCHANTED_LOCATION)
+_DEFAULT_EPIC_PARSE_SETTINGS = dataclasses.replace(_DEFAULT_ENCHANTED_PARSE_SETTINGS, labelParsingMethod=LABEL_PARSING_METHODS.DEFAULT, textboxOffset=_OPTIONAL_TEXTBOX_OFFSET, labelStartThreshold=175, labelEndThreshold=185, labelTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND)
 _PARSE_SETTINGS_FOR_ENCHANTED_BY_SET: Dict[str, ParseSettings] = {
 	"5": dataclasses.replace(_DEFAULT_NEW_ENCHANTED_PARSE_SETTINGS, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_WHITE_ABILITY_TEXT, thresholdTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND, labelTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND),
 	"6": dataclasses.replace(_DEFAULT_NEW_ENCHANTED_PARSE_SETTINGS, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_BY_LINES, labelTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND),
 	"7": dataclasses.replace(_DEFAULT_NEW_ENCHANTED_PARSE_SETTINGS, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_WHITE_ABILITY_TEXT, thresholdTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND, labelTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND),
-	"8": dataclasses.replace(_DEFAULT_NEW_ENCHANTED_PARSE_SETTINGS, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_WHITE_ABILITY_TEXT, thresholdTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND, labelTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND)
+	"8": dataclasses.replace(_DEFAULT_NEW_ENCHANTED_PARSE_SETTINGS, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_WHITE_ABILITY_TEXT, thresholdTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND, labelTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND),
+	"9": dataclasses.replace(_DEFAULT_NEW_ENCHANTED_PARSE_SETTINGS, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_WHITE_ABILITY_TEXT, thresholdTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND, labelTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND),
 }
 _PARSE_SETTINGS_BY_SET: Dict[str, ParseSettings] = {
 	"Q1": ParseSettings(labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_WHITE_ABILITY_TEXT, thresholdTextColor=ImageArea.TEXT_COLOUR_WHITE, labelMaskColor=_BLACK),
@@ -61,7 +66,8 @@ _PARSE_SETTINGS_BY_SET: Dict[str, ParseSettings] = {
 _PARSE_SETTINGS_BY_GROUPING: Dict[str, ParseSettings] = {
 	"C1": ParseSettings(textboxOffset=_OPTIONAL_TEXTBOX_OFFSET),
 	"D23": ParseSettings(getIdentifierFromCard=True, textboxOffset=_OPTIONAL_TEXTBOX_OFFSET, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_BY_LINES),
-	"P1": ParseSettings(getIdentifierFromCard=True)
+	"P1": ParseSettings(getIdentifierFromCard=True),
+	"P3": dataclasses.replace(_DEFAULT_PARSE_SETTINGS, labelStartThreshold=175, labelEndThreshold=180, labelTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND),
 }
 _PARSE_SETTINGS_BY_ID: Dict[int, ParseSettings] = {
 	676: _DEFAULT_ENCHANTED_PARSE_SETTINGS,
@@ -71,14 +77,17 @@ _PARSE_SETTINGS_BY_ID: Dict[int, ParseSettings] = {
 	680: _DEFAULT_ENCHANTED_PARSE_SETTINGS,
 	681: _DEFAULT_ENCHANTED_PARSE_SETTINGS,
 	954: _DEFAULT_ENCHANTED_PARSE_SETTINGS,
+	1161: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["5"], typeImageTextColorOverride=ImageArea.TEXT_COLOUR_WHITE),
 	1172: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["5"], isLocationOverride=True),
 	1178: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["5"], isLocationOverride=True),
-	1186: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["5"], hasFlavorTextOverride=False),
+	1186: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["5"], hasFlavorTextOverride=False, typeImageTextColorOverride=ImageArea.TEXT_COLOUR_WHITE),
 	1187: dataclasses.replace(_PARSE_SETTINGS_BY_GROUPING["C1"], labelParsingMethod=LABEL_PARSING_METHODS.NONE),
 	1191: ParseSettings(labelParsingMethod=LABEL_PARSING_METHODS.DEFAULT, textboxOffset=_OPTIONAL_TEXTBOX_OFFSET, getIdentifierFromCard=True),
 	1199: dataclasses.replace(_PARSE_SETTINGS_BY_GROUPING["C1"], textboxOffset=_OPTIONAL_TEXTBOX_OFFSET-5),
 	1197: dataclasses.replace(_PARSE_SETTINGS_BY_GROUPING["C1"], textboxOffset=39),
+	1405: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["6"], typeImageTextColorOverride=ImageArea.TEXT_COLOUR_WHITE),
 	1406: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["6"], isLocationOverride=True),
+	1407: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["6"], typeImageTextColorOverride=ImageArea.TEXT_COLOUR_WHITE),
 	1412: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["6"], labelParsingMethod=LABEL_PARSING_METHODS.NONE),
 	1415: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["6"], labelParsingMethod=LABEL_PARSING_METHODS.NONE),
 	1418: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["6"], labelParsingMethod=LABEL_PARSING_METHODS.NONE),
@@ -87,27 +96,43 @@ _PARSE_SETTINGS_BY_ID: Dict[int, ParseSettings] = {
 	1431: dataclasses.replace(_DEFAULT_PARSE_SETTINGS, textboxOffset=24),
 	1432: ParseSettings(textboxOffset=0, labelParsingMethod=LABEL_PARSING_METHODS.DEFAULT, getIdentifierFromCard=True),
 	1429: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["5"], hasFlavorTextOverride=False),
+	1638: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["7"], typeImageTextColorOverride=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND),
 	1641: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["7"], isItemOverride=True),
 	1662: _PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["7"],
 	1664: dataclasses.replace(_PARSE_SETTINGS_BY_GROUPING["C1"], labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_BY_LINES),
+	1869: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["8"], typeImageTextColorOverride=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND),
+	1871: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["8"], typeImageTextColorOverride=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND),
+	1872: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["8"], typeImageTextColorOverride=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND),
+	1893: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["8"], typeImageTextColorOverride=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND),
 	1895: dataclasses.replace(_PARSE_SETTINGS_BY_GROUPING["D23"], textboxOffset=15),
 	1931: dataclasses.replace(_DEFAULT_PARSE_SETTINGS, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_BY_LINES),
 	1932: dataclasses.replace(_DEFAULT_PARSE_SETTINGS, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_BY_LINES),
 	1933: dataclasses.replace(_DEFAULT_PARSE_SETTINGS, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_BY_LINES, hasFlavorTextOverride=True),
 	1934: dataclasses.replace(_DEFAULT_PARSE_SETTINGS, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_BY_LINES),
 	1935: dataclasses.replace(_DEFAULT_PARSE_SETTINGS, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_BY_LINES),
+	2141: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["9"], typeImageTextColorOverride=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND),
+	2142: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["9"], cardLayout=CardLayout.NEW_ENCHANTED_SMALL_TEXTBOX, characterCardLayout=CardLayout.NEW_ENCHANTED_CHARACTER_SMALL_TEXTBOX),
+	2143: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["9"], cardLayout=CardLayout.NEW_ENCHANTED_SMALL_TEXTBOX),
+	2145: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["9"], cardLayout=CardLayout.NEW_ENCHANTED_SMALL_TEXTBOX, characterCardLayout=CardLayout.NEW_ENCHANTED_CHARACTER_SMALL_TEXTBOX),
+	2149: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["9"], cardLayout=CardLayout.NEW_ENCHANTED_SMALL_TEXTBOX, characterCardLayout=CardLayout.NEW_ENCHANTED_CHARACTER_SMALL_TEXTBOX),
+	2160: dataclasses.replace(_DEFAULT_EPIC_PARSE_SETTINGS, labelStartThreshold=180),
+	2177: dataclasses.replace(_DEFAULT_ENCHANTED_PARSE_SETTINGS, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_WHITE_ABILITY_TEXT, labelTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND, thresholdTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND),
+	2178: dataclasses.replace(_DEFAULT_ENCHANTED_PARSE_SETTINGS, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_WHITE_ABILITY_TEXT, labelTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND, thresholdTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND),
+	2183: _PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["8"],
 }
 
 def getParseSetingsById(cardId: int) -> Optional[ParseSettings]:
 	return _PARSE_SETTINGS_BY_ID.get(cardId, None)
 
-def getParseSettings(cardId: int, identifier: Identifier, isEnchanted: bool) -> ParseSettings:
+def getParseSettings(cardId: int, identifier: Identifier, isEpic: bool, isEnchanted: bool) -> ParseSettings:
 	if cardId in _PARSE_SETTINGS_BY_ID:
 		return _PARSE_SETTINGS_BY_ID[cardId]
 	elif identifier.grouping in _PARSE_SETTINGS_BY_GROUPING:
 		return _PARSE_SETTINGS_BY_GROUPING[identifier.grouping]
 	elif identifier.setCode in _PARSE_SETTINGS_BY_SET:
 		return _PARSE_SETTINGS_BY_SET[identifier.setCode]
+	elif isEpic:
+		return _DEFAULT_EPIC_PARSE_SETTINGS
 	elif isEnchanted:
 		if identifier.setCode in _PARSE_SETTINGS_FOR_ENCHANTED_BY_SET:
 			return _PARSE_SETTINGS_FOR_ENCHANTED_BY_SET[identifier.setCode]

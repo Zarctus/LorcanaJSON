@@ -42,7 +42,7 @@ class ImageParser:
 		self._tesseractApi.SetVariable("crunch_early_convert_bad_unlv_chs", "1")
 
 	def getImageAndTextDataFromImage(self, cardId: int, baseImagePath: str, parseFully: bool, parsedIdentifier: IdentifierParser.Identifier = None, cardType: str = None, hasCardText: bool = None, hasFlavorText: bool = None,
-									 isEnchanted: bool = None, showImage: bool = False) -> OcrResult:
+									 isEpic: bool = False, isEnchanted: bool = None, showImage: bool = False) -> OcrResult:
 		startTime = time.perf_counter()
 		result: Dict[str, Optional[ImageAndText, List[ImageAndText]]] = {
 			"flavorText": None,
@@ -122,7 +122,7 @@ class ImageParser:
 
 		# Now we can determine the parse settings, if we hadn't found them already
 		if parseSettings is None:
-			parseSettings = ParseSettings.getParseSettings(cardId, parsedIdentifier, isEnchanted)
+			parseSettings = ParseSettings.getParseSettings(cardId, parsedIdentifier, isEpic, isEnchanted)
 
 		isCharacter = None
 		if cardType:
@@ -130,7 +130,7 @@ class ImageParser:
 		# First determine the card (sub)type
 		typesImageArea = (parseSettings.locationCardLayout if isLocation else parseSettings.cardLayout).types
 		typesImage = self._getSubImage(greyCardImage, typesImageArea)
-		typesImage = self._convertToThresholdImage(typesImage, typesImageArea.textColour)
+		typesImage = self._convertToThresholdImage(typesImage, parseSettings.typeImageTextColorOverride if parseSettings.typeImageTextColorOverride else typesImageArea.textColour)
 		typesImageText = self._imageToString(typesImage).strip("\"'‘-1|{} ")
 		if "\n" in typesImageText:
 			self._logger.debug(f"Removing part before newline character from types image text {typesImageText!r}")
@@ -187,8 +187,8 @@ class ImageParser:
 
 		# Find where the ability name labels are, store them as the top y, bottom y and the right x, so we know where to get the text from
 		# New-style Enchanted cards get parsed differently because this method doesn't find labels on those, it's handled in the 'remainingText' parsing section
-		textboxEdgeDetectedImage: Image.Image = None
-		textboxLinesImage: Image.Image = None
+		textboxEdgeDetectedImage: Optional[Image.Image] = None
+		textboxLinesImage: Optional[Image.Image] = None
 		labelCoords = []
 		if hasCardText is not False:
 			if parseSettings.labelParsingMethod == ParseSettings.LABEL_PARSING_METHODS.DEFAULT:
@@ -198,7 +198,7 @@ class ImageParser:
 					pixelValue = greyTextboxImage[y, parseSettings.textboxOffset]
 					if isCurrentlyInLabel:
 						# Check if the pixel got lighter, indicating we left the label block
-						if pixelValue > 110:
+						if pixelValue > parseSettings.labelEndThreshold:
 							isCurrentlyInLabel = False
 							if y - currentCoords[0] < 50:
 								self._logger.debug(f"Skipping possible label starting at y={currentCoords[0]} and ending at {y=}, not high enough to be a label")
@@ -206,7 +206,7 @@ class ImageParser:
 								currentCoords[1] = y - 1
 								labelCoords.append(tuple(currentCoords))  # Copy the coordinates list so we can't accidentally change a value anymore
 					# Check if a label started here
-					elif pixelValue < 105:
+					elif pixelValue < parseSettings.labelStartThreshold:
 						isCurrentlyInLabel = True
 						currentCoords[0] = y
 						yToCheck = min(textboxHeight - 1, y + 1)  # Check a few lines down to prevent weirdness with the edge of the label box
@@ -214,7 +214,7 @@ class ImageParser:
 						successiveLightPixels: int = 0
 						for x in range(parseSettings.textboxOffset, textboxWidth - parseSettings.textboxRightOffset):
 							checkValue = greyTextboxImage[yToCheck, x]
-							if checkValue > 120:
+							if checkValue > parseSettings.labelEndThreshold:
 								successiveLightPixels += 1
 								if successiveLightPixels > 5:
 									if x < 100:

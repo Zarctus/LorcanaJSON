@@ -18,7 +18,7 @@ def correctText(cardText: str) -> str:
 	# Commas should always be followed by a space
 	cardText = re.sub(",(?! |’|”|$)", ", ", cardText, flags=re.MULTILINE)
 	# The 'Exert' symbol often gets read as a 6
-	cardText = re.sub(r"^(6|fà)? ?,", f"{LorcanaSymbols.EXERT},", cardText)
+	cardText = re.sub(r"^(G?6|fà)? ?,", f"{LorcanaSymbols.EXERT},", cardText)
 	# There's usually an ink symbol between a number and a dash
 	cardText = re.sub(r"(^| )(\d) ?[0OÒQ©]{,2}( ?[-—]|,)", fr"\1\2 {LorcanaSymbols.INK}\3", cardText, flags=re.MULTILINE)
 	# Normally a closing quote mark should be preceded by a period, except mid-sentence
@@ -32,8 +32,10 @@ def correctText(cardText: str) -> str:
 	cardText = re.sub(r"^([(&f]+À?|fà)? ?[-—](?=\s)", f"{LorcanaSymbols.EXERT} —", cardText)
 	# Some cards have a bulleted list, replace the start character with the separator symbol
 	cardText = re.sub(r"^[-+*«»¢.,‚]{1,2}(?= \w{2,} \w+)", LorcanaSymbols.SEPARATOR, cardText, flags=re.MULTILINE)
+	# 'À' is probably a Lore symbol
+	cardText = re.sub(r"(?<=\d )À\b", LorcanaSymbols.LORE, cardText)
 	# Other weird symbols are probably strength symbols
-	cardText = re.sub(r"(?<!\d)X?[&@©%$*<>{}€£¥Ÿ]{1,2}[0-9yFX+*%#“»]*", LorcanaSymbols.STRENGTH, cardText)
+	cardText = re.sub(r"(?<!\d)[ÇX]?[&@©%$*<>{}€£¥Ÿ]{1,2}[0-9yFX+*%#“»]*", LorcanaSymbols.STRENGTH, cardText)
 	cardText = re.sub(r"(?<=\d )[CÇDIQX]{1,2}\b", LorcanaSymbols.STRENGTH, cardText)
 	# Make sure there's a period before a closing bracket
 	cardText = re.sub(fr"([^.,'!?’{LorcanaSymbols.STRENGTH}])\)", r"\1.)", cardText)
@@ -78,10 +80,10 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(r"\bIllumineers’(\s|$)", r"Illumineers'\1", cardText, flags=re.MULTILINE)
 		## Correct common phrases with symbols ##
 		# Ink payment discounts
-		cardText = re.sub(r"\bpay (\d) .?to\b", f"pay \\1 {LorcanaSymbols.INK} to", cardText)
+		cardText = re.sub(r"(?<=\bpay\s)(\d)0? .?to\b", f"\\1 {LorcanaSymbols.INK} to", cardText)
 		cardText = re.sub(rf"pay(s?) ?(\d)\.? ?[^{LorcanaSymbols.INK}.]{{1,2}}( |\.|$)", f"pay\\1 \\2 {LorcanaSymbols.INK}\\3", cardText, flags=re.MULTILINE)
 		cardText = re.sub(rf"pay(\s)(\d) [^{LorcanaSymbols.INK}] less", fr"pay\1\2 {LorcanaSymbols.INK} less", cardText)
-		cardText = re.sub(r"\bpay (\d) less\b", f"pay \\1 {LorcanaSymbols.INK} less", cardText)
+		cardText = re.sub(r"(?<=\bpay\s)(\d+)O?(?=\sless\b)", f"\\1 {LorcanaSymbols.INK}", cardText)
 		# It gets a bit confused about exert and payment, correct that
 		cardText = re.sub(r"^\(20 ", f"{LorcanaSymbols.EXERT}, 2 {LorcanaSymbols.INK} ", cardText)
 		# The Lore symbol after 'location's' often gets missed
@@ -91,6 +93,7 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(r"\(They get \+(\d)$", f"(They get +\\1 {LorcanaSymbols.STRENGTH}", cardText, flags=re.MULTILINE)
 		# Shift
 		cardText = re.sub(f"pay (\\d+) {LorcanaSymbols.INK} play this", f"pay \\1 {LorcanaSymbols.INK} to play this", cardText)
+		cardText = re.sub(fr"(^Shift \d) ?[O{LorcanaSymbols.STRENGTH}]", fr"\1 {LorcanaSymbols.INK}", cardText)
 		# Song
 		cardText = re.sub(fr"(can|may)( [^{LorcanaSymbols.EXERT}]{{1,2}})?(?=\sto sing this)", f"\\1 {LorcanaSymbols.EXERT}", cardText)
 		# Support, full line (not sure why it sometimes doesn't get cut into two lines
@@ -119,6 +122,8 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(f"(?<=ajouter leur )[^{LorcanaSymbols.STRENGTH}](?= à celle)", LorcanaSymbols.STRENGTH, cardText)
 		# Correct Challenger/Offensif reminder text
 		cardText = re.sub(r"gagne \+(\d+) \.\)", fr"gagne +\1 {LorcanaSymbols.STRENGTH}.)", cardText)
+		# Correct Shift/Alter with an ink symbol
+		cardText = re.sub(fr"(^Alter \d) ?[O{LorcanaSymbols.STRENGTH}]", fr"\1 {LorcanaSymbols.INK}", cardText)
 		# Cost discount text
 		cardText = re.sub(r"coûte (\d)0 de moins", f"coûte \\1 {LorcanaSymbols.INK} de moins", cardText)
 		cardText = re.sub(fr"(coûte(?:nt)? )(\d+) [^{LorcanaSymbols.INK} \nou]+", fr"\1\2 {LorcanaSymbols.INK}", cardText)
@@ -128,7 +133,7 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(r"\.+ ([a-z])", r"… \1", cardText)
 		cardText = re.sub(r"^‘", "“", cardText, flags=re.MULTILINE)
 		# "Il" often gets misread as "I!" or "[|"
-		cardText = re.sub(r"(?<![A-Z])[I|/[][!|]", "Il", cardText)
+		cardText = re.sub(r"(?<![A-Z])[I|/![][!|/]", "Il", cardText)
 		cardText = re.sub(r"(^|\s|')[/\[I]+l+umin(arium|eur)", "\\1Illumin\\2", cardText)
 		# French always has a space before punctuation marks
 		cardText = re.sub(r"([^? ])!", r"\1 !", cardText)
@@ -235,7 +240,7 @@ def correctPunctuation(textToCorrect: str) -> str:
 	:param textToCorrect: The text to correct. Can be multiline
 	:return: The fixed text, or the original text if there was nothing to fix
 	"""
-	correctedText = textToCorrect
+	correctedText = textToCorrect.strip()
 	# Simplify quote mark if it's used in a contraction
 	correctedText = re.sub(r"(?<=\w)['‘’]+(?=\w)", "'", correctedText)
 	# It frequently misses the dash before a quote attribution
@@ -253,7 +258,7 @@ def correctPunctuation(textToCorrect: str) -> str:
 	if correctedText.endswith(","):
 		correctedText = correctedText[:-1] + "."
 	if GlobalConfig.language == Language.ENGLISH:
-		correctedText = re.sub(r"\b([Tt]hey|[Yy]ou)re\b", r"\1're", correctedText)
+		correctedText = re.sub(r"\b([Tt]hey|[Yy]ou)(ll|re)\b", r"\1'\2", correctedText)
 		# Correct fancy quotemarks when they're used in shortenings (f.i. "'em", "comin'", etc.)
 		correctedText = re.sub(r"(?<=\s)[‘’](?=(cause|em|til)([,.?!]|\s|$))", "'", correctedText, flags=re.IGNORECASE)
 		correctedText = re.sub(r"(?<=\win)[‘’](?=[,.?!]|\s|$)", "'", correctedText, flags=re.IGNORECASE)

@@ -20,8 +20,8 @@ def compareInputToOutput(cardIdsToVerify: Optional[List[int]]):
 	with open(outputFilePath, "r", encoding="utf-8") as outputFile:
 		outputCardStore = json.load(outputFile)
 	idToEnglishOutputCard = {}
-	englishRarities = ()
-	currentLanguageRarities = ()
+	englishRarities = None
+	currentLanguageRarities = None
 	if GlobalConfig.language != Language.ENGLISH:
 		englishOutputFilePath = os.path.join("output", Language.ENGLISH.code, "allCards.json")
 		if os.path.isfile(englishOutputFilePath):
@@ -31,9 +31,11 @@ def compareInputToOutput(cardIdsToVerify: Optional[List[int]]):
 					idToEnglishOutputCard[englishCard["id"]] = englishCard
 		else:
 			print("WARNING: English output file doesn't exist, skipping comparison")
-		englishRarities = (Translations.ENGLISH.COMMON, Translations.ENGLISH.UNCOMMON, Translations.ENGLISH.RARE, Translations.ENGLISH.SUPER, Translations.ENGLISH.LEGENDARY, Translations.ENGLISH.ENCHANTED, Translations.ENGLISH.SPECIAL)
+		englishRarities = (Translations.ENGLISH.COMMON, Translations.ENGLISH.UNCOMMON, Translations.ENGLISH.RARE, Translations.ENGLISH.SUPER, Translations.ENGLISH.LEGENDARY,
+						   Translations.ENGLISH.EPIC, Translations.ENGLISH.ENCHANTED, Translations.ENGLISH.ICONIC, Translations.ENGLISH.SPECIAL)
 		currentTranslation = Translations.getForLanguage(GlobalConfig.language)
-		currentLanguageRarities = (currentTranslation.COMMON, currentTranslation.UNCOMMON, currentTranslation.RARE, currentTranslation.SUPER, currentTranslation.LEGENDARY, currentTranslation.ENCHANTED, currentTranslation.SPECIAL)
+		currentLanguageRarities = (currentTranslation.COMMON, currentTranslation.UNCOMMON, currentTranslation.RARE, currentTranslation.SUPER, currentTranslation.LEGENDARY,
+								   currentTranslation.EPIC, currentTranslation.ENCHANTED, currentTranslation.ICONIC, currentTranslation.SPECIAL)
 
 	idToInputCard = {}
 	for cardtype, cardlist in inputCardStore["cards"].items():
@@ -66,8 +68,10 @@ def compareInputToOutput(cardIdsToVerify: Optional[List[int]]):
 		inputCard = idToInputCard[cardId]
 
 		# Implement overrides
+		listFieldLengthChange: Optional[Dict[str, int]] = None
 		symbolCountChange: Optional[Dict[str, int]] = None
 		if cardId in inputOverrides:
+			listFieldLengthChange = inputOverrides[cardId].pop("_listFieldLengthChange", None)
 			symbolCountChange = inputOverrides[cardId].pop("_symbolCountChange", None)
 			for fieldName, correctionsTuple in inputOverrides[cardId].items():
 				for correctionIndex in range(0, len(correctionsTuple), 2):
@@ -102,7 +106,7 @@ def compareInputToOutput(cardIdsToVerify: Optional[List[int]]):
 					inputRulesText = re.sub(r"(?<=\w)([?!:])", r" \1", inputRulesText)
 					inputRulesText = re.sub("\\.{2,}", "…", inputRulesText)
 					# Correct the old phrasing of 'Rempart' ('Bodyguard' in English) to the new one, since the images got updated but the input text wasn't
-					if "Rempart" in inputRulesText:
+					if cardId <= 615 and "Rempart" in inputRulesText:
 						inputRulesText = inputRulesText.replace("Lorsqu'il vous défie, un personnage adverse doit,", "Lorsqu'un adversaire défie l'un de vos personnages, il doit,")
 				elif GlobalConfig.language == Language.ITALIAN:
 					inputRulesText = inputRulesText.replace("...", "…")
@@ -214,9 +218,10 @@ def compareInputToOutput(cardIdsToVerify: Optional[List[int]]):
 			if re.search(f"[^ \n“„+]{symbol}", outputCard["fullText"]) or re.search(fr"{symbol}[^ \n.,)—-]", outputCard["fullText"]):
 				cardDifferencesCount += 1
 				print(f"{cardId}: Symbol '{symbol}' doesn't have whitespace around it")
-		if re.search(r"\s{2,}", outputCard["fullText"]):
+		multipleWhitespaceMatch = re.search(r"\s{2,}", outputCard["fullText"])
+		if multipleWhitespaceMatch:
 			cardDifferencesCount += 1
-			print(f"{cardId}: Fulltext has two or more whitespace characters in a row")
+			print(f"{cardId}: Fulltext has two or more whitespace characters in a row, at position {multipleWhitespaceMatch.start()}: {multipleWhitespaceMatch.group()!r}")
 
 		# If this isn't English, compare with the English results
 		# English is easier to manually verify, so this is done to prevent mistakes or oddities, like ability type mismatches between languages
@@ -238,9 +243,12 @@ def compareInputToOutput(cardIdsToVerify: Optional[List[int]]):
 					cardDifferencesCount += 1
 					print(f"{cardId}: '{fieldname}' doesn't exist in {GlobalConfig.language.englishName} but does in English")
 				elif isinstance(outputCard[fieldname], list):
-					if len(outputCard[fieldname]) != len(englishCard[fieldname]):
+					expectedListLength = len(englishCard[fieldname])
+					if listFieldLengthChange and fieldname in listFieldLengthChange:
+						expectedListLength += listFieldLengthChange[fieldname]
+					if len(outputCard[fieldname]) != expectedListLength:
 						cardDifferencesCount += 1
-						print(f"{cardId}: '{fieldname}' doesn't have same length in {GlobalConfig.language.englishName} and English: length is {len(outputCard[fieldname])} in {GlobalConfig.language.englishName} but {len(englishCard[fieldname])} in English")
+						print(f"{cardId}: '{fieldname}' doesn't have same length in {GlobalConfig.language.englishName} and English: length is {len(outputCard[fieldname])} in {GlobalConfig.language.englishName} but {expectedListLength} in English")
 				elif outputCard[fieldname] != englishCard[fieldname]:
 					cardDifferencesCount += 1
 					print(f"{cardId}: '{fieldname}' differs between {GlobalConfig.language.englishName} '{outputCard[fieldname]}' and English '{englishCard[fieldname]}'")
