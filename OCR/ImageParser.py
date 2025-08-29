@@ -22,7 +22,6 @@ class ImageParser:
 	def __init__(self):
 		"""
 		Create an image parser
-		:param forceGenericModel: If True, force the use of the generic Tesseract model for the language, even if a Lorcana-specific one exists. If False or not provided, uses the Lorcana model if available for the current language. Defaults to False
 		"""
 		self._logger = logging.getLogger("LorcanaJSON")
 		self.nonCharacterTypes = (GlobalConfig.translation.Action, GlobalConfig.translation.Item, GlobalConfig.translation.Location)
@@ -190,7 +189,7 @@ class ImageParser:
 		textboxEdgeDetectedImage: Optional[Image.Image] = None
 		textboxLinesImage: Optional[Image.Image] = None
 		labelCoords = []
-		if hasCardText is not False:
+		if hasCardText is not False or parseSettings.hasCardTextOverride is True:
 			if parseSettings.labelParsingMethod == ParseSettings.LABEL_PARSING_METHODS.DEFAULT:
 				isCurrentlyInLabel: bool = False
 				currentCoords = [0, 0, 0]
@@ -341,7 +340,7 @@ class ImageParser:
 		abilityLabelImage = None
 		abilityTextImage = None
 		remainingTextImage = None
-		if hasCardText is not False:
+		if hasCardText is not False or parseSettings.hasCardTextOverride is True:
 			labelCoords.reverse()
 			previousBlockTopY = flavorTextSeparatorY - (_FLAVORTEXT_MARGIN + 1 if hasFlavorText else 0)
 			labelNumber = len(labelCoords)
@@ -374,19 +373,19 @@ class ImageParser:
 					if parseSettings.labelParsingMethod == ParseSettings.LABEL_PARSING_METHODS.FALLBACK_WHITE_ABILITY_TEXT and re.search("[A-Z]{2,}", remainingText):
 						# Detecting labels on new-style Enchanted cards is hard, so for those the full card text is 'remainingText'
 						# Try to get the labels and effects out
-						labelMatch = re.search("([AÀÈI] |I['’]M )?[A-ZÈÉÊÜ]{2}", remainingText)
+						labelMatch = re.search("([AÀÈI] |I['’]M |C['’])?[A-ZÈÉÊÜ]{2}", remainingText)
 						if labelMatch:
 							labelAndEffectText = remainingText[labelMatch.start():]
 							remainingText = remainingText[:labelMatch.start()].rstrip()
 							while labelAndEffectText:
-								effectMatch = re.search(fr"(([A-Z]|[ÀI|] )[a-zü]|[0-9{LorcanaSymbols.EXERT}@©&]|(^|\s)G( [a-z ]*)?[,—–-])", labelAndEffectText, flags=re.DOTALL)
+								effectMatch = re.search(fr"(([A-Z]|[AÀI|] )[a-zäéü]|[0-9{LorcanaSymbols.EXERT}@©&]|(^|\s)G( [a-z ]*)?[,—–-])", labelAndEffectText, flags=re.DOTALL)
 								if effectMatch:
 									labelText = labelAndEffectText[:effectMatch.start()]
 									effectText = labelAndEffectText[effectMatch.start():]
 								else:
 									labelText = ""
 									effectText = ""
-								nextLabelMatch = re.search("\n([AÀÈI] |I['’]M )?[A-ZÉÊÜ]{2}", effectText)
+								nextLabelMatch = re.search("\n([AÀÈI] |I['’]M |C['’])?[A-ZÉÊÜ]{2}", effectText)
 								if nextLabelMatch:
 									labelAndEffectText = effectText[nextLabelMatch.start():].lstrip()
 									effectText = effectText[:nextLabelMatch.start()].rstrip()

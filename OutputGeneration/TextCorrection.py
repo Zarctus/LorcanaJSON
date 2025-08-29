@@ -29,13 +29,13 @@ def correctText(cardText: str) -> str:
 	cardText = re.sub(r"(?<=[”’)])\s.$", "", cardText, flags=re.MULTILINE)
 	# The 'exert' symbol often gets mistaken for a @ or G, correct that
 	cardText = re.sub(r"(?<![0-9s])(^|[\"“„ ])[(@Gg©€]{1,3}[89]?([ ,])", fr"\1{LorcanaSymbols.EXERT}\2", cardText, flags=re.MULTILINE)
-	cardText = re.sub(r"^([(&f]+À?|fà)? ?[-—](?=\s)", f"{LorcanaSymbols.EXERT} —", cardText)
+	cardText = re.sub(r"^([(&f]+[Àà]?)? ?[-—](?=\s)", f"{LorcanaSymbols.EXERT} —", cardText)
 	# Some cards have a bulleted list, replace the start character with the separator symbol
 	cardText = re.sub(r"^[-+*«»¢.,‚]{1,2}(?= \w{2,} \w+)", LorcanaSymbols.SEPARATOR, cardText, flags=re.MULTILINE)
 	# 'À' is probably a Lore symbol
 	cardText = re.sub(r"(?<=\d )À\b", LorcanaSymbols.LORE, cardText)
 	# Other weird symbols are probably strength symbols
-	cardText = re.sub(r"(?<!\d)[ÇX]?[&@©%$*<>{}€£¥Ÿ]{1,2}[0-9yFX+*%#“»]*", LorcanaSymbols.STRENGTH, cardText)
+	cardText = re.sub(r"(?<!\d)[ÇX]?[&@©%$*<>{}€£¥Ÿ]{1,2}[0-9yFÌX+*%#“»]*", LorcanaSymbols.STRENGTH, cardText)
 	cardText = re.sub(r"(?<=\d )[CÇDIQX]{1,2}\b", LorcanaSymbols.STRENGTH, cardText)
 	# Make sure there's a period before a closing bracket
 	cardText = re.sub(fr"([^.,'!?’{LorcanaSymbols.STRENGTH}])\)", r"\1.)", cardText)
@@ -138,7 +138,6 @@ def correctText(cardText: str) -> str:
 		# French always has a space before punctuation marks
 		cardText = re.sub(r"([^? ])!", r"\1 !", cardText)
 		cardText = re.sub(r"!(\w)", r"! \1", cardText)
-		cardText = cardText.replace("//", "Il")
 		cardText = re.sub(fr"((?:\bce personnage|\bil) gagne )\+(\d) [^{LorcanaSymbols.LORE}{LorcanaSymbols.STRENGTH}{LorcanaSymbols.WILLPOWER}]?\.", fr"\1+\2 {LorcanaSymbols.STRENGTH}.", cardText)
 		# Fix second line of 'Challenger'/'Offensif' reminder text
 		cardText = re.sub(r"^\+(\d) ?[^.]{0,2}\.\)$", fr"+\1 {LorcanaSymbols.STRENGTH}.)", cardText, flags=re.MULTILINE)
@@ -160,6 +159,8 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(r"herausfordert, erhält er \+(\d+) \S+\.\)", f"herausfordert, erhält er +\\1 {LorcanaSymbols.STRENGTH}.)", cardText)
 		# 'Support' reminder text
 		cardText = re.sub(r"(seine|ihre)(\s)(?:\S{1,2} )?in diesem Zug zur(\s)\S{1,2}", f"\\1\\2{LorcanaSymbols.STRENGTH} in diesem Zug zur\\3{LorcanaSymbols.STRENGTH}", cardText)
+		# Correct Shift/Gestaltwandel with an ink symbol
+		cardText = re.sub(fr"(^Gestaltwandel \d) ?[O{LorcanaSymbols.STRENGTH}]", fr"\1 {LorcanaSymbols.INK}", cardText)
 		# Song reminder text
 		cardText = re.sub(fr"(?<=oder mehr kostet, )[^{LorcanaSymbols.EXERT}](?=, damit)", LorcanaSymbols.EXERT, cardText)
 		# The Lore symbol gets read as a '+', correct that
@@ -195,6 +196,8 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(r"(?<=con costo \d)0(?= [^o])", " o", cardText)
 		# Fix Song reminder Exert symbol
 		cardText = re.sub(r"(?<=\d\so superiore può ).(?= per\scantare questa canzone gratis)", LorcanaSymbols.EXERT, cardText)
+		# Correct Shift/Trasformazione with an ink symbol
+		cardText = re.sub(fr"(^Trasformazione \d) ?[OÒ{LorcanaSymbols.STRENGTH}]", fr"\1 {LorcanaSymbols.INK}", cardText)
 		# It misses the Strength symbol if it's at the end of a line
 		cardText = re.sub(r"(?<=Riceve \+\d)\n", f" {LorcanaSymbols.STRENGTH}\n", cardText)
 		# It frequently reads the Strength symbol as 'XX or a percentage sign' or leaves a closing bracket
