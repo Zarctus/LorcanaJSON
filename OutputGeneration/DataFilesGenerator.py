@@ -126,6 +126,20 @@ def createOutputFiles(onlyParseIds: Optional[List[int]] = None, shouldShowImages
 		pool.close()
 		pool.join()
 
+		# Collect parsed card results from the worker threads. Each result
+		# is an AsyncResult from pool.apply_async. We need to call .get()
+		# to obtain the parsed card dict (or None) and add it to the
+		# fullCardList. Any exception raised during parsing will be
+		# propagated here and logged.
+		for asyncResult in results:
+			try:
+				parsedCard = asyncResult.get()
+				if parsedCard:
+					fullCardList.append(parsedCard)
+			except Exception as e:
+				_logger.error(f"Exception occurred while collecting parsed card result: {type(e)} {e}")
+				raise
+
 	_logger.info(f"Created card list in {time.perf_counter() - startTime} seconds")
 
 	if cardDataCorrections:
