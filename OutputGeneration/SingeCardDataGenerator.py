@@ -613,10 +613,22 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 					else:
 						# There should've been a space between the keyword and the numeric value, but something went wrong with parsing. Try to add it back in
 						_logger.debug(f"No space found in keyword-keywordvalue pair {keyword!r}, splitting by regular expression")
-						keywordNameValueMatch = re.match(r"(\w+)(\d+)", keyword)
-						keyword = keywordNameValueMatch.group(1)
-						keywordValue = keywordNameValueMatch.group(2)
-				elif keyword[-3].isnumeric():
+						# Allow accented letters and apostrophes in the keyword part; capture trailing digit run
+						keywordNameValueMatch = re.match(r"([A-Za-zÀ-ÖØ-öø-ÿ'’-]+?)(\d+)$", keyword)
+						if keywordNameValueMatch:
+							keyword = keywordNameValueMatch.group(1).rstrip(" -")
+							keywordValue = keywordNameValueMatch.group(2)
+						else:
+							# Fallback: manually split last consecutive digits if present
+							trailingDigitsMatch = re.search(r"(\d+)$", keyword)
+							if trailingDigitsMatch:
+								keywordValue = trailingDigitsMatch.group(1)
+								keyword = keyword[: -len(keywordValue)].rstrip()
+								_logger.debug(f"Recovered keyword/value split heuristically: {keyword!r} / {keywordValue!r}")
+							else:
+								# Give up; keep entire string as keyword, don't set value
+								_logger.warning(f"Unable to split keyword/value for {keyword!r}; treating entire string as keyword name")
+				elif len(keyword) >= 3 and keyword[-3].isnumeric():
 					# From set 9 on, Shift gets written as "Shift x {ink}", check for that too
 					keyword, keywordValue, inkSymbol = keyword.rsplit(" ", 2)
 				elif ":" in keyword:

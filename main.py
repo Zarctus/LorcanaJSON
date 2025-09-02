@@ -72,11 +72,10 @@ if __name__ == '__main__':
 	if not os.path.isdir("logs"):
 		os.mkdir("logs")
 	logfilePath = os.path.join("logs", "LorcanaJSON.log")
-	loggingFileHandler = logging.handlers.RotatingFileHandler(logfilePath, mode="w", backupCount=10, encoding="utf-8", delay=True)
+	loggingFileHandler = logging.handlers.RotatingFileHandler(logfilePath, mode="a", backupCount=10, encoding="utf-8", delay=True)
 	loggingFileHandler.setLevel(logging.DEBUG)
 	loggingFileHandler.setFormatter(loggingFormatter)
-	if os.path.isfile(logfilePath):
-		loggingFileHandler.doRollover()
+# Suppression du rollover forcé pour éviter les verrous Windows
 	logger.addHandler(loggingFileHandler)
 
 	#Also print everything to the console
@@ -142,7 +141,8 @@ if __name__ == '__main__':
 				logger.info(f"Using thread count {GlobalConfig.threadCount} from {threadSource}")
 		else:
 			# Only use half the available cores for threads, because we're also IO- and GIL-bound, so more threads would just slow things down
-			GlobalConfig.threadCount = max(1, os.cpu_count() // 2)
+			availableCpus = os.cpu_count() or 1
+			GlobalConfig.threadCount = max(1, availableCpus // 2)
 			if cardIds and len(cardIds) < GlobalConfig.threadCount:
 				# No sense using more threads than we have images to process
 				GlobalConfig.threadCount = len(cardIds)
