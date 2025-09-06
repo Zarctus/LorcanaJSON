@@ -247,17 +247,16 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 	if otherRelatedCards.enchantedId:
 		outputCard["enchantedId"] = otherRelatedCards.enchantedId
 	elif otherRelatedCards.nonEnchantedId:
-		outputCard["nonEnchantedId"] = otherRelatedCards.nonEnchantedId
 		outputCard["baseId"] = otherRelatedCards.nonEnchantedId
 	if otherRelatedCards.iconicId:
 		outputCard["iconicId"] = otherRelatedCards.iconicId
 	elif otherRelatedCards.nonIconicId:
 		outputCard["baseId"] = otherRelatedCards.nonIconicId
 	if otherRelatedCards.nonPromoId:
-		outputCard["nonPromoId"] = otherRelatedCards.nonPromoId
 		if "baseId" in outputCard:
 			_logger.error(f"baseId is already set to {outputCard['baseId']} from a rarity, not setting it to non-promo ID {otherRelatedCards.nonPromoId} for card {CardUtil.createCardIdentifier(outputCard)}")
-		outputCard["baseId"] = otherRelatedCards.nonPromoId
+		else:
+			outputCard["baseId"] = otherRelatedCards.nonPromoId
 	elif otherRelatedCards.promoIds:
 		outputCard["promoIds"] = otherRelatedCards.promoIds
 	if otherRelatedCards.otherVariantIds:
@@ -385,7 +384,7 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 		clarifications = []
 		for infoEntry in inputCard["additional_info"]:
 			# The text has multiple \r\n's as newlines, reduce that to just a single \n
-			infoText: str = infoEntry["body"].rstrip().replace("\r", "").replace("\n\n", "\n").replace("\t", " ")
+			infoText: str = re.sub(r" ?(\\r\\n|\r\n)+ ?", "\n", infoEntry["body"]).strip().replace("\t", " ")
 			# The text uses unicode characters in some places, replace those with their simple equivalents
 			infoText = infoText.replace("’", "'").replace("–", "-").replace("“", "\"").replace("”", "\"")
 			# Sometimes they write cardnames as "basename- subtitle", add the space before the dash back in
@@ -399,7 +398,7 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 				errata.append(infoText)
 			elif infoEntry["title"].startswith("FAQ") or infoEntry["title"].startswith("Keyword") or infoEntry["title"] == "Good to know":
 				# Sometimes they cram multiple questions and answers into one entry, split those up into separate clarifications
-				infoEntryClarifications = re.split("\\s*\n+(?=[FQ]:)", infoText)
+				infoEntryClarifications = re.split(r"\s*\n+(?=[DFQ] ?:)", infoText)
 				clarifications.extend(infoEntryClarifications)
 			# Some German cards have an artist correction in their 'additional_info', but that's already correct in the data, so ignore that
 			# Bans are listed as additional info, but we handle that separately, so ignore those
