@@ -201,10 +201,17 @@ class ExternalLinksHandler:
 
 			for card in expansionCardsRequest.json():
 				# The data also includes boosters, pins, marketing cards, and other non-card items, skip those
-				if (not card["fixed_properties"] or not card["fixed_properties"]["collector_number"] or card["version"] in ("Cinese Exclusive", "Chinese Exclusive", "Oversized",) or
-						card["fixed_properties"].get("lorcana_rarity", None) == "Oversized" or card["category_id"] != _CARD_TRADER_SINGLES_CATEGORY_ID):
+				fixed_props = card.get("fixed_properties")
+				# Some responses (error cases / unexpected items) appear to return a string or null for fixed_properties; guard against that
+				if not isinstance(fixed_props, dict):
 					continue
-				cardNumber: str = card["fixed_properties"]["collector_number"].lstrip("0")
+				collector_number_raw = fixed_props.get("collector_number")
+				if not isinstance(collector_number_raw, str) or not collector_number_raw.strip():
+					continue
+				if (card.get("version") in ("Cinese Exclusive", "Chinese Exclusive", "Oversized",) or
+						fixed_props.get("lorcana_rarity") == "Oversized" or card.get("category_id") != _CARD_TRADER_SINGLES_CATEGORY_ID):
+					continue
+				cardNumber: str = collector_number_raw.lstrip("0")
 				if not cardNumber:
 					# 'Bruno Madrigal - Undetected Uncle' (ID 1936) is card 0/204 of Set 9, handle that
 					cardNumber = "0"
@@ -229,7 +236,7 @@ class ExternalLinksHandler:
 						_LOGGER.warning(f"Found {len(card['card_market_ids']):,} Cardmarket IDs for card '{card['name']}' (CardTrader ID {card['id']}) in expansion {expansionName} (ID {expansion['id']}), using first one")
 					cardExternalLinks["cardmarketId"] = card["card_market_ids"][0]
 				cardmarketCategoryName: str = ""
-				if cardSetCodeToUse == "Promos" and "/P2" in card["fixed_properties"]["collector_number"]:
+				if cardSetCodeToUse == "Promos" and "/P2" in collector_number_raw:
 					cardmarketCategoryName = "Promos-Year-2"
 				elif cardSetCodeToUse == "Q1":
 					cardmarketCategoryName = "Ursulas-Deck"
@@ -237,8 +244,8 @@ class ExternalLinksHandler:
 					cardmarketCategoryName = "Disney-Lorcana-Challenge-Promos"
 				elif cardSetCodeToUse != setCodeToUse:
 					cardmarketCategoryName = _convertStringToUrlValue(setCodeToName[cardSetCodeToUse])
-				elif re.search("/[A-Z]", card["fixed_properties"]["collector_number"]):
-					cardCategory = card["fixed_properties"]["collector_number"].split("/", 1)[1].strip()
+				elif re.search("/[A-Z]", collector_number_raw):
+					cardCategory = collector_number_raw.split("/", 1)[1].strip()
 					if cardCategory in _CARD_MARKET_CARD_GROUP_TO_NAME:
 						cardmarketCategoryName = _CARD_MARKET_CARD_GROUP_TO_NAME[cardCategory]
 					else:
