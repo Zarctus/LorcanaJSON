@@ -259,9 +259,9 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 			outputCard["baseId"] = otherRelatedCards.nonPromoId
 	elif otherRelatedCards.promoIds:
 		outputCard["promoIds"] = otherRelatedCards.promoIds
-	if otherRelatedCards.otherVariantIds:
+	# Ajout de variantIds uniquement pour la carte de base (pas de variant) si des variantes existent
+	if otherRelatedCards.otherVariantIds and parsedIdentifier.variant is None:
 		outputCard["variantIds"] = otherRelatedCards.otherVariantIds
-		outputCard["variant"] = parsedIdentifier.variant
 	if otherRelatedCards.reprintedAsIds:
 		outputCard["reprintedAsIds"] = otherRelatedCards.reprintedAsIds
 	elif otherRelatedCards.reprintOfId:
@@ -746,7 +746,11 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 	if "subtypes" in outputCard:
 		outputCard["subtypesText"] = LorcanaSymbols.SEPARATOR_STRING.join(outputCard["subtypes"])
 	# Add external links (Do this after corrections so we can use a corrected 'fullIdentifier')
-	outputCard["externalLinks"] = threadLocalStorage.externalIdsHandler.getExternalLinksForCard(parsedIdentifier, "enchantedId" in outputCard)
+	# Cardmarket: si une version V2 (variant) existe, la version de base doit avoir le suffixe -V1.
+	# La fonction getExternalLinksForCard utilise actuellement le booléen 'hasEnchanted' pour décider d'ajouter -V1.
+	# On réutilise ce paramètre pour signaler aussi l'existence d'une variante, mais uniquement pour la carte de base (sans letter variant).
+	_hasSecondVersionForCardmarket = ("enchantedId" in outputCard) or (("variantIds" in outputCard) and not parsedIdentifier.variant)
+	outputCard["externalLinks"] = threadLocalStorage.externalIdsHandler.getExternalLinksForCard(parsedIdentifier, _hasSecondVersionForCardmarket)
 	if externalLinksCorrection:
 		TextCorrection.correctCardField(outputCard, "externalLinks", externalLinksCorrection[0], externalLinksCorrection[1])
 	if moveAbilityAtIndexToIndex:

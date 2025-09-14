@@ -117,9 +117,13 @@ class RelatedCards:
 				else:
 					otherRelatedCards.iconicId = self.iconicCardIdsBySet[setCode]
 
-		if self.variantCardIds and cardId in self.variantCardIds:
-			isNotVariant = False
-			otherRelatedCards.otherVariantIds = [i for i in self.variantCardIds if i != cardId]
+		if self.variantCardIds:
+			if cardId in self.variantCardIds:
+				isNotVariant = False
+				otherRelatedCards.otherVariantIds = [i for i in self.variantCardIds if i != cardId]
+			else:
+				# Pour la carte de base, on met toutes les variantes
+				otherRelatedCards.otherVariantIds = self.variantCardIds.copy()
 		if isNotPromo and isNotFancyArt and len(self.normalCardIdsBySet) > 0:
 			# More than one normal card means this is or has a reprint
 			if cardId == self.firstNormalCardId:

@@ -27,6 +27,7 @@ def checkForNewCardData(newCardCatalog: Dict = None, fieldsToIgnore: List[str] =
 					if fieldName not in knownCardFieldNames:
 						knownCardFieldNames.append(fieldName)
 	else:
+		oldCardCatalog = {}
 		_logger.info("No card catalog stored, so full update is needed")
 
 	# Get the new card catalog, if needed
@@ -130,14 +131,14 @@ def checkForNewCardData(newCardCatalog: Dict = None, fieldsToIgnore: List[str] =
 					updateCheckResult.addNewCard(card, "[external]")
 
 	# Check if new sets have been added
-	if len(oldCardCatalog["card_sets"]) != len(newCardCatalog["card_sets"]):
+	if "card_sets" in oldCardCatalog and len(oldCardCatalog["card_sets"]) != len(newCardCatalog["card_sets"]):
 		oldNames = [s["name"] for s in oldCardCatalog["card_sets"]]
 		for newSetData in newCardCatalog["card_sets"]:
 			if newSetData["name"] not in oldNames:
 				updateCheckResult.newSets.append(newSetData["name"])
 
 	# The cardstore stores the latest version of the official app, compare that too
-	if oldCardCatalog["application_shared_properties"]["current_app_version"] != newCardCatalog["application_shared_properties"]["current_app_version"]:
+	if "application_shared_properties" in oldCardCatalog and oldCardCatalog["application_shared_properties"].get("current_app_version") != newCardCatalog["application_shared_properties"]["current_app_version"]:
 		updateCheckResult.appVersionChange = (oldCardCatalog["application_shared_properties"]["current_app_version"], newCardCatalog["application_shared_properties"]["current_app_version"])
 
 	return updateCheckResult
