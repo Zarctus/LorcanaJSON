@@ -199,7 +199,18 @@ class ExternalLinksHandler:
 				_LOGGER.warning(f"Échec de récupération des cartes pour l'expansion '{expansionName}', code {expansionCardsRequest.status_code}. Passage à l'expansion suivante.")
 				continue
 
-			for card in expansionCardsRequest.json():
+			try:
+				cards_payload = expansionCardsRequest.json()
+			except ValueError:
+				_LOGGER.error(f"Réponse non JSON pour l'expansion '{expansionName}' (id {expansion['id']}), on l'ignore.")
+				continue
+			if not isinstance(cards_payload, list):
+				_LOGGER.error(f"Format inattendu (type={type(cards_payload).__name__}) pour l'expansion '{expansionName}', attendu liste.")
+				continue
+			for card in cards_payload:
+				if not isinstance(card, dict):
+					_LOGGER.warning(f"Entrée ignorée (type={type(card).__name__}) dans '{expansionName}': {card!r}")
+					continue
 				# The data also includes boosters, pins, marketing cards, and other non-card items, skip those
 				fixed_props = card.get("fixed_properties")
 				# Some responses (error cases / unexpected items) appear to return a string or null for fixed_properties; guard against that
