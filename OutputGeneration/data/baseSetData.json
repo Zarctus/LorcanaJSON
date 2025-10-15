@@ -240,11 +240,34 @@
       "fr": "Givresort",
       "it": "Incanto d'Inverno"
     },
+    "prereleaseDate": "2026-02-13",
+    "releaseDate": "2026-02-20",
+    "hasAllCards": false,
+    "type": "expansion",
+    "number": 11,
+    "allowedInFormats": {
+      "Core": {
+        "allowed": false,
+        "rotationGroup": 3
+      },
+      "Infinity": {
+        "allowed": false
+      }
+    },
+    "allowedInTournamentsFromDate": null
+  },
+  "12": {
+    "names": {
+      "de": "Unbekannte Wildnis",
+      "en": "Wilds Unknown",
+      "fr": "Contrées Inconnues",
+      "it": "Lande Sconosciute"
+    },
     "prereleaseDate": null,
     "releaseDate": null,
     "hasAllCards": false,
     "type": "expansion",
-    "number": 11,
+    "number": 12,
     "allowedInFormats": {
       "Core": {
         "allowed": false,
