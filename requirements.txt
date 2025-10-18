@@ -1,6 +1,6 @@
 opencv-python
 Pillow
 requests
-tesserocr
+tesserocr==2.8.0
 mysql-connector-python
 pymysql

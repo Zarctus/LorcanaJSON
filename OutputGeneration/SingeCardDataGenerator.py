@@ -93,7 +93,7 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 	outputCard["artistsText"] = ocrResult.artistsText.lstrip(". ").replace("’", "'").replace("|", "l").replace("NM", "M")
 	oldArtistsText = outputCard["artistsText"]
 	outputCard["artistsText"] = re.sub(r"^[l[]", "I", outputCard["artistsText"])
-	while re.search(r" [a-zAè0-9ÿI|(\\/_+.,;'”#=—-]{1,2}$", outputCard["artistsText"]):
+	while re.search(r" [a-zAè0-9ÿI|(){\\/_+*.,;'‘”#=—-]{1,2}$", outputCard["artistsText"]):
 		outputCard["artistsText"] = outputCard["artistsText"].rsplit(" ", 1)[0]
 	outputCard["artistsText"] = outputCard["artistsText"].rstrip(".")
 	if "ggman-Sund" in outputCard["artistsText"]:
@@ -121,12 +121,13 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 		outputCard["artistsText"] = re.sub(r"Man[6e]+\b", "Mané", outputCard["artistsText"])
 	outputCard["artistsText"] = re.sub(r"\bAime\b", "Aimé", outputCard["artistsText"])
 	outputCard["artistsText"] = re.sub("Le[éòöô]n", "León", outputCard["artistsText"])
+	outputCard["artistsText"] = re.sub(r"^N(?=ichael)", "M", outputCard["artistsText"])
 	outputCard["artistsText"] = re.sub(r"\bPe[^ñ]+a\b", "Peña", outputCard["artistsText"])
 	if "“" in outputCard["artistsText"]:
 		# Simplify quotemarks
 		outputCard["artistsText"] = outputCard["artistsText"].replace("“", "\"").replace("”", "\"")
 	if oldArtistsText != outputCard["artistsText"]:
-		_logger.info(f"Corrected artist name from '{oldArtistsText}' to '{outputCard['artistsText']}' in card {CardUtil.createCardIdentifier(inputCard)}")
+		_logger.info(f"Corrected artist name from {oldArtistsText!r} to {outputCard['artistsText']!r} in card {CardUtil.createCardIdentifier(inputCard)}")
 
 	outputCard["name"] = TextCorrection.correctPunctuation(inputCard["name"].strip() if "name" in inputCard else ocrResult.name).replace("’", "'").replace("‘", "'").replace("''", "'")
 	if outputCard["name"] == "Balais Magiques":
@@ -340,9 +341,9 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 
 	if ocrResult.abilityLabels:
 		for abilityIndex in range(len(ocrResult.abilityLabels)):
-			abilityName = TextCorrection.correctPunctuation(ocrResult.abilityLabels[abilityIndex].replace("''", "'")).rstrip(":")
+			abilityName = TextCorrection.correctPunctuation(ocrResult.abilityLabels[abilityIndex].replace("''", "'").replace("ß", "ẞ")).rstrip(" %:").upper()
 			originalAbilityName = abilityName
-			abilityName = re.sub(r"(?<=\w) ?[.;7|»”©(\"=~]$", "", abilityName)
+			abilityName = re.sub(r"(?<=\w) ?[.;7|>»”©(\"=~_]{1,2}$", "", abilityName)
 			if GlobalConfig.language == Language.ENGLISH:
 				abilityName = abilityName.replace("|", "I")
 				abilityName = re.sub("^l", "I", abilityName)
@@ -370,6 +371,9 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 			if abilityName != originalAbilityName:
 				_logger.info(f"Corrected ability name from {originalAbilityName!r} to {abilityName!r}")
 			abilityEffect = TextCorrection.correctText(TextCorrection.correctPunctuation(ocrResult.abilityTexts[abilityIndex]))
+			if len(abilityName) < 3 and len(abilityEffect) < 5:
+				_logger.info(f"Skipping ability at index {abilityIndex}, name {abilityName!r} and effect text {abilityEffect!r} are too short")
+				continue
 			abilities.append({
 				"name": abilityName,
 				"effect": abilityEffect
@@ -429,7 +433,7 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 			subtypes[subtypes.index(sevenDwarvesCheckTypes[0])] = " ".join(sevenDwarvesCheckTypes)
 		for subtypeIndex in range(len(subtypes) - 1, -1, -1):
 			subtype = subtypes[subtypeIndex]
-			if GlobalConfig.language in (Language.ENGLISH, Language.FRENCH) and subtype != "Floodborn" and re.match(r"^[EF][il][ao][aeo]d[^b]?b?[^b]?[aeo](r[an][es+-]?|m)$", subtype):
+			if GlobalConfig.language in (Language.ENGLISH, Language.FRENCH) and subtype != "Floodborn" and re.match(r"^[EF][il][aeo][aeo]d[^b]?b?[^b]?[aeo](r[an][es+-]?|m)$", subtype):
 				_logger.debug(f"Correcting '{subtype}' to 'Floodborn'")
 				subtypes[subtypeIndex] = "Floodborn"
 			elif GlobalConfig.language == Language.ENGLISH and subtype != "Hero" and re.match(r"e?H[eo]r[aeos]", subtype):
@@ -483,6 +487,7 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 			while insertAbilityData:
 				insertAbilityIndex = insertAbilityData.pop(0)
 				insertAbilityText = insertAbilityData.pop(0)
+				_logger.info(f"Inserting ability {insertAbilityText!r} at index {insertAbilityIndex} in card {CardUtil.createCardIdentifier(outputCard)}")
 				outputCard["abilities"].insert(insertAbilityIndex, {"effect": insertAbilityText, "fullText": insertAbilityText})
 				if insertAbilityData and isinstance(insertAbilityData[0], str):
 					outputCard["abilities"][insertAbilityIndex]["name"] = insertAbilityData.pop(0)
@@ -509,6 +514,10 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 			for abilityIndex in range(len(outputCard["abilities"]) - 1, -1, -1):
 				ability = outputCard["abilities"][abilityIndex]
 				abilityTextFieldName = "fullText" if "fullText" in ability else "effect"
+				if not ability[abilityTextFieldName]:
+					_logger.info(f"Removing empty ability at index {abilityIndex} in card {CardUtil.createCardIdentifier(outputCard)}")
+					outputCard["abilities"].pop(abilityIndex)
+					continue
 				while "\n\n" in ability[abilityTextFieldName]:
 					# We need to split this ability in two
 					_logger.info(f"Splitting ability at index {abilityIndex} in two because it has a double newline, in card {CardUtil.createCardIdentifier(outputCard)}")
@@ -748,6 +757,13 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 	if moveAbilityAtIndexToIndex:
 		_logger.info(f"Moving ability at index {moveAbilityAtIndexToIndex[0]} to index {moveAbilityAtIndexToIndex[1]}")
 		outputCard["abilities"].insert(moveAbilityAtIndexToIndex[1], outputCard["abilities"].pop(moveAbilityAtIndexToIndex[0]))
+		# Moving keyword abilities might change the 'keywordAbilities' order, so rebuild the list if necessary
+		if "keywordAbilities" in outputCard:
+			_logger.info("Recreating keyword ability list")
+			outputCard["keywordAbilities"] = []
+			for ability in outputCard["abilities"]:
+				if "keyword" in ability:
+					outputCard["keywordAbilities"].append(ability["keyword"])
 	# Reconstruct the full card text. Do that after storing and correcting fields, so any corrections will be taken into account
 	# Remove the newlines in the fields we use while we're at it, because we only needed those to reconstruct the fullText
 	fullTextSections = []
