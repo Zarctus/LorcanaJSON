@@ -81,6 +81,15 @@
     "matchingNames": ["Alistair Krei", "Aunt Cass", "Baymax", "Fred", "Go Go Tomago", "Hiro Hamada", "Honey Lemon", "Tadashi Hamada", "Wasabi", "Yokai"],
     "matchingIds": [1277, 1297, 1361, 1364, 1366, 1369, 1418]
   },
+  "blackcauldron": {
+    "displayNames": {
+      "de": "Taran und der Zauberkessel",
+      "en": "The Black Cauldron",
+      "fr": "Taram et le Chaudron magique",
+      "it": "Taron e la pentola magica"
+    },
+    "matchingNames": ["Black Cauldron", "Gurgi", "Gwythaint", "Hen Wen", "Taran", "The Horned King"]
+  },
   "bolt": {
     "displayNames": {
       "de": "Bolt – Ein Hund für alle Fälle",
@@ -128,7 +137,8 @@
       "fr": "La Bande à Picsou",
       "it": "DuckTales"
     },
-    "matchingNames": ["Beagle Boys", "Della Duck", "Dewey", "Ducktales", "Flintheart Glomgold", "Gizmoduck", "Gyro Gearloose", "Huey", "Lena Sabrewing", "Louie", "Lucky Dime", "Magica De Spell", "Poe De Spell", "Scrooge", "Scrooge McDuck", "Webby Vanderquack"],
+    "matchingNames": ["Beagle Boys", "Della Duck", "Dewey", "Ducktales", "Duckworth", "Flintheart Glomgold", "Gizmoduck", "Gyro Gearloose", "Huey", "Launchpad", "Lena Sabrewing", "Louie", "Lucky Dime",
+      "Magica De Spell", "Mrs. Beakly", "Poe De Spell", "Scrooge", "Scrooge McDuck", "Violet Sabrewing", "Webby Vanderquack"],
     "matchingIds": [636]
   },
   "dumbo": {
@@ -171,6 +181,18 @@
     },
     "matchingNames": ["Anna", "Arendelle", "Bruni", "Duke of Weselton", "Elsa", "Grand Pabbie", "Hans", "Honeymaren", "Iduna", "Kristoff", "Marshmellow", "Olaf", "Ryder", "Sven", "The Nokk", "Yelana"],
     "matchingIds": [63, 163, 200, 415, 720, 857, 997, 998, 1085, 1188, 1610, 1611, 1653, 1745, 1748]
+  },
+  "gargoyles": {
+    "displayNames": {
+      "de": "Gargoyles",
+      "en": "Gargoyles",
+      "fr": "Gargoyles",
+      "it": "Gargoyles"
+    },
+    "matchingNames": ["Broadway", "Bronx", "Brooklyn", "David Xanatos", "Demona", "Elisa Maza", "Goliath", "Hudson", "Lexington"],
+    "matchingFields": {
+      "subtypes": "Gargoyle"
+    }
   },
   "goofymovie": {
     "displayNames": {

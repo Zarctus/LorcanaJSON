@@ -93,7 +93,7 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 	outputCard["artistsText"] = ocrResult.artistsText.lstrip(". ").replace("’", "'").replace("|", "l").replace("NM", "M")
 	oldArtistsText = outputCard["artistsText"]
 	outputCard["artistsText"] = re.sub(r"^[l[]", "I", outputCard["artistsText"])
-	while re.search(r" [a-zAè0-9ÿI|(){\\/_+*.,;'‘”#=—-]{1,2}$", outputCard["artistsText"]):
+	while re.search(r" [a-zAè0-9ÿI|(){\\/_+*.,;'‘”#¥©=—-]{1,2}$", outputCard["artistsText"]):
 		outputCard["artistsText"] = outputCard["artistsText"].rsplit(" ", 1)[0]
 	outputCard["artistsText"] = outputCard["artistsText"].rstrip(".")
 	if "ggman-Sund" in outputCard["artistsText"]:
@@ -413,6 +413,7 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 			outputCard["errata"] = errata
 		if clarifications:
 			outputCard["clarifications"] = clarifications
+
 	# Determine subtypes and their order. Items and Actions have an empty subtypes list, ignore those
 	if ocrResult.subtypesText:
 		subtypes: List[str] = re.sub(fr"[^A-Za-zàäèéöü{LorcanaSymbols.SEPARATOR} ]", "", ocrResult.subtypesText).split(LorcanaSymbols.SEPARATOR_STRING)
@@ -444,6 +445,8 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 				subtypes[subtypeIndex] = "Iena"
 			elif subtype == "Hros":
 				subtypes[subtypeIndex] = "Héros"
+			elif subtype == "toryborn":
+				subtypes[subtypeIndex] = "Storyborn"
 			# Remove short subtypes, probably erroneous
 			elif len(subtype) < (4 if GlobalConfig.language == Language.ENGLISH else 3) and subtype != "Re":  # 'Re' is Italian for 'King', so it's a valid subtype
 				_logger.debug(f"Removing subtype '{subtype}', too short")

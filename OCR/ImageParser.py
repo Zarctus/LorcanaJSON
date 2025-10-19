@@ -159,7 +159,7 @@ class ImageParser:
 		else:
 			cardLayout = parseSettings.cardLayout
 
-		result["artist"] = self._getSubImageAndText(greyCardImage, cardLayout.artist)
+		result["artist"] = self._getSubImageAndText(greyCardImage, cardLayout.artist, parseSettings.forceArtistTextColor)
 		if parseFully:
 			# Parse from top to bottom
 			result["name"] = self._getSubImageAndText(greyCardImage, cardLayout.name)
@@ -373,19 +373,19 @@ class ImageParser:
 					if parseSettings.labelParsingMethod == ParseSettings.LABEL_PARSING_METHODS.FALLBACK_WHITE_ABILITY_TEXT and re.search("[A-Z]{2,}", remainingText):
 						# Detecting labels on new-style Enchanted cards is hard, so for those the full card text is 'remainingText'
 						# Try to get the labels and effects out
-						labelMatch = re.search("([AÀÈI] |I['’]M |C['’])?[A-ZÈÉÊÜ]{2}", remainingText)
+						labelMatch = re.search("(^|\n)([AÀÈI|Y] |I['’]M |[A-Z]['’])?[A-ZÄÈÉÊÖÜ]{2,}", remainingText)
 						if labelMatch:
 							labelAndEffectText = remainingText[labelMatch.start():]
 							remainingText = remainingText[:labelMatch.start()].rstrip()
 							while labelAndEffectText:
-								effectMatch = re.search(fr"(([A-Z]|[AÀI|] )[a-zäéü]|[0-9{LorcanaSymbols.EXERT}@©&]|(^|\s)G( [a-z ]*)?[,—–-])", labelAndEffectText, flags=re.DOTALL)
+								effectMatch = re.search(fr"(([A-Z]|[AÀI|] )[a-zäéü]|[0-9{LorcanaSymbols.EXERT}@©&{{[]|(^|\s)G( [a-z ]*)?[,—–-])", labelAndEffectText, flags=re.DOTALL)
 								if effectMatch:
 									labelText = labelAndEffectText[:effectMatch.start()]
 									effectText = labelAndEffectText[effectMatch.start():]
 								else:
 									labelText = ""
 									effectText = ""
-								nextLabelMatch = re.search("\n([AÀÈI] |I['’]M |C['’])?[A-ZÉÊÜ]{2}", effectText)
+								nextLabelMatch = re.search("\n([AÀÈI] |I['’]M |C['’])?[A-ZÄÉÊÖÜ]{2}", effectText)
 								if nextLabelMatch:
 									labelAndEffectText = effectText[nextLabelMatch.start():].lstrip()
 									effectText = effectText[:nextLabelMatch.start()].rstrip()
@@ -501,14 +501,12 @@ class ImageParser:
 				self._logger.info(f"Corrected non-numeric result '{originalResult}' to '{result}' for image area '{imageAreaName}'")
 		return result
 
-	def _getSubImageAndText(self, image, imageArea):
-		# Remplacer _getImagePart par _getSubImage
-		subImage = self._getSubImage(image, imageArea)
-		if subImage is None or subImage.size == 0:
-			import logging
-			logging.warning(f"Sous-image extraite vide pour la zone {imageArea.keyName}")
-			# Retourner une ImageAndText avec un texte vide plutôt que de planter
-			return ImageAndText(None, "")
+	def _getSubImageAndText(self, cardImage: cv2.Mat, imageArea: ImageArea.ImageArea, forceTextColor: Optional[ImageArea.TextColour] = None) -> ImageAndText:
+		subImage = self._getSubImage(cardImage, imageArea)
+		# Numeric reading is more sensitive, so convert to a clearer threshold image
+		textColour = forceTextColor if forceTextColor else imageArea.textColour
+		if imageArea.isNumeric or textColour == ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND:
+			subImage = self._convertToThresholdImage(subImage, textColour)
 		return ImageAndText(subImage, self._imageToString(subImage, imageArea.isNumeric, imageArea.keyName))
 
 	@staticmethod
