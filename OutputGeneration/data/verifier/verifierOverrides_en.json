@@ -511,6 +511,26 @@
       "i / Livio Cacciatore"
     ]
   },
+  "2246": {
+    "flavor_text": [
+      " l ",
+      " I "
+    ]
+  },
+  "2259": {
+    "flavor_text": [
+      "— ",
+      "—"
+    ]
+  },
+  "2321": {
+    "flavor_text": [
+      "emphasized",
+      "dwelled on",
+      "scare his",
+      "put a good scare into his"
+    ]
+  },
   "2410": {
     "rules_text": [
       "W.+\"W",
@@ -527,6 +547,12 @@
       "",
       "\\)",
       ""
+    ]
+  },
+  "2423": {
+    "rules_text": [
+      "another",
+      "a"
     ]
   },
   "2432": {
