@@ -1,0 +1,77 @@
+{
+  "metadata": {
+    "formatVersion": "2.2.1",
+    "generatedOn": "2025-09-02T06:53:36",
+    "language": "fr"
+  },
+  "cards": [
+    {
+      "abilities": [
+        {
+          "effect": "Ce personnage ne peut pas \u00eatre \u27f3 pour chanter des chansons.",
+          "fullText": "SANS VOIX Ce personnage ne peut pas \u00eatre \u27f3\npour chanter des chansons.",
+          "name": "SANS VOIX",
+          "type": "static"
+        }
+      ],
+      "allowedInFormats": {
+        "Core": {
+          "allowed": true,
+          "allowedUntilDate": "2025-09-05"
+        },
+        "Infinity": {
+          "allowed": true
+        }
+      },
+      "allowedInTournamentsFromDate": "2023-09-08",
+      "artists": [
+        "Matthew Robert Davies"
+      ],
+      "artistsText": "Matthew Robert Davies",
+      "code": "01",
+      "color": "Ambre",
+      "cost": 4,
+      "externalLinks": {
+        "cardmarketId": 727081,
+        "cardmarketUrl": "https://www.cardmarket.com/fr/Lorcana/Products/Singles/The-First-Chapter/Ariel-On-Human-Legs?language=2",
+        "tcgPlayerId": 494102,
+        "tcgPlayerUrl": "https://www.tcgplayer.com/product/494102"
+      },
+      "flavorText": "\u201c\u2026\u201d",
+      "foilTypes": [
+        "None",
+        "Silver"
+      ],
+      "fullIdentifier": "1/204 \u2022 FR \u2022 1",
+      "fullName": "Ariel - Sur des jambes humaines",
+      "fullText": "SANS VOIX Ce personnage ne peut pas \u00eatre \u27f3\npour chanter des chansons.",
+      "fullTextSections": [
+        "SANS VOIX Ce personnage ne peut pas \u00eatre \u27f3\npour chanter des chansons."
+      ],
+      "id": 1,
+      "images": {
+        "foilMask": "https://api.lorcana.ravensburger.com/images/fr/set1/1_f311aade3a7573cc24b23993f3820df8e8933dce.jpg",
+        "full": "https://api.lorcana.ravensburger.com/images/fr/set1/1_6ce0c0681772fec10c3127a0d320164c165a7111.jpg",
+        "thumbnail": "https://api.lorcana.ravensburger.com/images/fr/set1/1_bbd75b40bcc70d930c54a2d29f8bee136fc47395.jpg"
+      },
+      "inkwell": true,
+      "lore": 2,
+      "name": "Ariel",
+      "number": 1,
+      "rarity": "Inhabituelle",
+      "setCode": "1",
+      "simpleName": "ariel sur des jambes humaines",
+      "story": "La Petite Sir\u00e8ne",
+      "strength": 3,
+      "subtypes": [
+        "Storyborn",
+        "H\u00e9ros",
+        "Princesse"
+      ],
+      "subtypesText": "Storyborn \u2022 H\u00e9ros \u2022 Princesse",
+      "type": "Personnage",
+      "version": "Sur des jambes humaines",
+      "willpower": 4
+    }
+  ]
+}
