@@ -215,14 +215,14 @@ class ImageParser:
 							checkValue = greyTextboxImage[yToCheck, x]
 							if checkValue > parseSettings.labelEndThreshold if parseSettings.labelIsDarkerThanBackground else checkValue < parseSettings.labelEndThreshold:
 								successiveLightPixels += 1
-								if successiveLightPixels > 5:
+								if successiveLightPixels > 6:
 									if x < 100:
 										self._logger.debug(f"Skipping label at {currentCoords=} and {x=}, not wide enough to be a label")
 										currentCoords[0] = 0
 										currentCoords[1] = 0
 										isCurrentlyInLabel = False
 									else:
-										currentCoords[2] = x - _ABILITY_LABEL_MARGIN - 6
+										currentCoords[2] = x - _ABILITY_LABEL_MARGIN - 7
 									break
 							else:
 								successiveLightPixels = 0
@@ -337,8 +337,6 @@ class ImageParser:
 
 		#Find the card text, one block at the time, separated by the ability name label
 		# We have to go from bottom to top, because non-labelled text is above labelled text
-		abilityLabelImage = None
-		abilityTextImage = None
 		remainingTextImage = None
 		if hasCardText is not False or parseSettings.hasCardTextOverride is True:
 			labelCoords.reverse()
@@ -354,6 +352,8 @@ class ImageParser:
 				abilityTextImage = greyTextboxImage.copy()
 				cv2.rectangle(abilityTextImage, (0, 0), (labelCoord[2] + _ABILITY_LABEL_MARGIN, labelCoord[1]), parseSettings.labelMaskColor, thickness=-1)  # -1 thickness fills the rectangle
 				abilityTextImage = self._convertToThresholdImage(abilityTextImage[labelCoord[0]:previousBlockTopY, 0:textboxWidth], parseSettings.thresholdTextColor)
+				if parseSettings.cardTextHasOutline:
+					cv2.floodFill(abilityTextImage, None, (1, 1), 0)
 				abilityText = self._imageToString(abilityTextImage)
 				result["abilityTexts"].append(ImageAndText(abilityTextImage, abilityText))
 				self._logger.debug(f"{abilityLabelText=} ({labelCoord[1] - labelCoord[0]} px high), {abilityText=}")
@@ -373,7 +373,7 @@ class ImageParser:
 					if parseSettings.labelParsingMethod == ParseSettings.LABEL_PARSING_METHODS.FALLBACK_WHITE_ABILITY_TEXT and re.search("[A-Z]{2,}", remainingText):
 						# Detecting labels on new-style Enchanted cards is hard, so for those the full card text is 'remainingText'
 						# Try to get the labels and effects out
-						labelMatch = re.search("(^|\n)([AÀÈI|Y] |I['’]M |[A-Z]['’])?[A-ZÄÈÉÊÖÜ]{2,}", remainingText)
+						labelMatch = re.search("(^|\n)([AÀÈÉI|Y] |I['’]M |[A-Z]['’])?[A-ZÄÈÉÊÖÜ]{2,}", remainingText)
 						if labelMatch:
 							labelAndEffectText = remainingText[labelMatch.start():]
 							remainingText = remainingText[:labelMatch.start()].rstrip()
@@ -385,7 +385,7 @@ class ImageParser:
 								else:
 									labelText = ""
 									effectText = ""
-								nextLabelMatch = re.search("\n([AÀÈI] |I['’]M |C['’])?[A-ZÄÉÊÖÜ]{2}", effectText)
+								nextLabelMatch = re.search("\n([AÀÈÉI] |I['’]M |C['’])?[A-ZÄÉÊÖÜ]{2}", effectText)
 								if nextLabelMatch:
 									labelAndEffectText = effectText[nextLabelMatch.start():].lstrip()
 									effectText = effectText[:nextLabelMatch.start()].rstrip()
@@ -430,8 +430,6 @@ class ImageParser:
 			if result["abilityTexts"]:
 				for index, abilityTextEntry in enumerate(result["abilityTexts"]):
 					cv2.imshow(f"Ability text image {index}", abilityTextEntry.image)
-			if abilityTextImage is not None:
-				cv2.imshow("Ability text image", abilityTextImage)
 			if remainingTextImage is not None:
 				cv2.imshow("Remaining text image", remainingTextImage)
 			cv2.imshow("Artist", result["artist"].image)

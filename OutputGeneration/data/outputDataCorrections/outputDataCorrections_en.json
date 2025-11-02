@@ -2659,12 +2659,6 @@
       "Special"
     ]
   },
-  "2184": {
-    "abilities": [
-      "I$",
-      "E"
-    ]
-  },
   "2188": {
     "abilities": [
       "4 \\(",
@@ -2961,12 +2955,6 @@
       "⟳"
     ]
   },
-  "2417": {
-    "artistsText": [
-      "t",
-      "ł"
-    ]
-  },
   "2418": {
     "_skipFullTextSectionMergeAtIndex": 1,
     "artistsText": [
@@ -2980,18 +2968,6 @@
       "L W",
       "HI",
       "H I"
-    ]
-  },
-  "2420": {
-    "effects": [
-      "^.+\nP",
-      "P"
-    ],
-    "subtypes": [
-      null,
-      [
-        "Song"
-      ]
     ]
   },
   "2421": {
@@ -3022,44 +2998,31 @@
     ]
   },
   "2430": {
-    "_insertAbilityAtIndex": [0, "Boost 1 ⬡"],
     "abilities": [
-      "^M",
-      "COM",
-      " J$",
+      "!",
+      " 1 ⬡",
+      "7",
       "",
-      "\\.\\)",
-      " during",
-      "ny",
-      "turn, whenever",
-      "np",
-      "u p",
-      "asoug",
-      " a song,",
-      "t r.+$",
-      "f there's a card\nunder this character, you may draw a card."
+      "^r",
+      "Once dur",
+      "ft",
+      "f t",
+      "sac",
+      "s a c",
+      " =",
+      ""
     ],
     "subtypes": [
-      "y$",
-      "yborn",
       null,
-      "Hero",
-      null,
-      "Princess",
-      null,
-      "Whisper"
+        [
+          "Storyborn",
+          "Hero",
+          "Princess",
+          "Whisper"
+        ]
     ]
   },
   "2431": {
-    "_addNameToAbilityAtIndex": [0, "WHAT D'YA SAY?"],
-    "abilities": [
-      "^Ae\nf",
-      "When you play this character,\nyou may choose an opposing character. If you do,\ndraw 2 cards unless that character's player puts\nth",
-      "hak",
-      "their",
-      " .\\.$",
-      ""
-    ],
     "subtypes": [
       "Bowy",
       null,
