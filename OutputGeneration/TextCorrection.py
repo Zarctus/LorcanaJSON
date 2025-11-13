@@ -62,6 +62,8 @@ def correctText(cardText: str) -> str:
 	cardText = re.sub(r"(?<=\bTe[ -]K)a\b", "ā", cardText)
 	# Floodborn characters have Shift, and a subtypes bar that drips ink, leading to erroneous character detection. Fix that
 	cardText = re.sub(fr"^[^\n]{{,15}}\n(?=(?:[A-Z]\w+[ -])?{GlobalConfig.translation.shift})", "", cardText)
+	# Cards can grant abilities, written in quotemarks. These can never start with a Strength symbol, that should be Exert
+	cardText = cardText.replace(f"“{LorcanaSymbols.STRENGTH}", f"“{LorcanaSymbols.EXERT}")
 
 	if GlobalConfig.language == Language.ENGLISH:
 		cardText = re.sub("^‘", "“", cardText, flags=re.MULTILINE)
@@ -171,8 +173,8 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(r"herausfordert, erhält er \+(\d+) \S+\.\)", f"herausfordert, erhält er +\\1 {LorcanaSymbols.STRENGTH}.)", cardText)
 		# 'Support' reminder text
 		cardText = re.sub(r"(seine|ihre)(\s)(?:\S{1,2} )?in diesem Zug zur(\s)\S{1,2}", f"\\1\\2{LorcanaSymbols.STRENGTH} in diesem Zug zur\\3{LorcanaSymbols.STRENGTH}", cardText)
-		# Correct Shift/Gestaltwandel with an ink symbol
-		cardText = re.sub(fr"(^Gestaltwandel \d) ?[O{LorcanaSymbols.STRENGTH}]", fr"\1 {LorcanaSymbols.INK}", cardText)
+		# Correct Shift/Gestaltwandel and Boost/Stärken with an ink symbol
+		cardText = re.sub(fr"^(Gestaltwandel|Stärken) ?(\d) ?[0O{LorcanaSymbols.STRENGTH}]", fr"\1 \2 {LorcanaSymbols.INK}", cardText)
 		# Song reminder text
 		cardText = re.sub(fr"(?<=oder mehr kostet, )[^{LorcanaSymbols.EXERT}](?=, damit)", LorcanaSymbols.EXERT, cardText)
 		# The Lore symbol gets read as a '+', correct that
