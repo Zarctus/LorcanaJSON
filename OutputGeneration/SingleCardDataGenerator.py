@@ -302,7 +302,7 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 				remainingTextLines[remainingTextLineIndex - 1] += "\n" + remainingTextLines.pop(remainingTextLineIndex)
 
 		for remainingTextLine in remainingTextLines:
-			remainingTextLine = TextCorrection.correctText(TextCorrection.correctPunctuation(remainingTextLine))
+			remainingTextLine = TextCorrection.correctText(TextCorrection.correctPunctuation(remainingTextLine)).replace("‘", "")
 			if len(remainingTextLine) < 4:
 				_logger.info(f"Remaining text for card {CardUtil.createCardIdentifier(outputCard)} {remainingTextLine!r} is too short, discarding")
 				continue
@@ -343,9 +343,8 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 
 	if ocrResult.abilityLabels:
 		for abilityIndex in range(len(ocrResult.abilityLabels)):
-			abilityName = TextCorrection.correctPunctuation(ocrResult.abilityLabels[abilityIndex].replace("''", "'").replace("ß", "ẞ")).rstrip(" %:").upper()
+			abilityName = TextCorrection.correctPunctuation(ocrResult.abilityLabels[abilityIndex].replace("''", "'").replace("ß", "ẞ")).lstrip("-+_.… ").rstrip(" %:").upper()
 			originalAbilityName = abilityName
-			abilityName = re.sub("^[-_… ]+", "", abilityName)
 			abilityName = re.sub(r"(?<=\w) ?[.;7|>»”©(\"=~_]{1,2}$", "", abilityName)
 			if GlobalConfig.language == Language.ENGLISH:
 				abilityName = abilityName.replace("|", "I")
@@ -373,7 +372,7 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 				abilityName = abilityName.replace("’", "'")
 			if abilityName != originalAbilityName:
 				_logger.info(f"Corrected ability name from {originalAbilityName!r} to {abilityName!r}")
-			abilityEffect = TextCorrection.correctText(TextCorrection.correctPunctuation(ocrResult.abilityTexts[abilityIndex]))
+			abilityEffect = TextCorrection.correctText(TextCorrection.correctPunctuation(ocrResult.abilityTexts[abilityIndex])).replace("‘", "")
 			if len(abilityName) < 3 and len(abilityEffect) < 5:
 				_logger.info(f"Skipping ability at index {abilityIndex}, name {abilityName!r} and effect text {abilityEffect!r} are too short")
 				continue
@@ -568,6 +567,7 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 		if "effects" in outputCard and mergeEffectIndexWithPrevious > -1:
 			_logger.info(f"Merging effect index {mergeEffectIndexWithPrevious} with previous index for card {CardUtil.createCardIdentifier(outputCard)}")
 			outputCard["effects"][mergeEffectIndexWithPrevious - 1] += "\n" + outputCard["effects"].pop(mergeEffectIndexWithPrevious)
+
 		# Do this after the general corrections since one of those might add or split an effect
 		if effectAtIndexIsAbility != -1:
 			if "effects" not in outputCard:

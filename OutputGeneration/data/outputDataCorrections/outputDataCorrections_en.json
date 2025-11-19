@@ -2656,9 +2656,7 @@
   "2188": {
     "abilities": [
       "4 \\(",
-      "4 ⬡ (",
-      "^[.-] ",
-      ""
+      "4 ⬡ ("
     ]
   },
   "2198": {
@@ -3054,7 +3052,7 @@
   },
   "2440": {
     "abilities": [
-      "^_ ‘",
+      "^_ ",
       ""
     ],
     "flavorText": [
@@ -3068,6 +3066,44 @@
     "abilities": [
       "2 ¤",
       "2 ⬡"
+    ]
+  },
+  "2451": {
+    "abilities": [
+      "^.+\nE",
+      "E"
+    ],
+    "flavorText": [
+      "L",
+      "Z"
+    ],
+    "subtypes": [
+      "YROUSD",
+      null,
+      null,
+      [
+        "Storyborn",
+        "Ally"
+      ]
+    ]
+  },
+  "2455": {
+    "abilities": [
+      "^.+\nE",
+      "E"
+    ],
+    "flavorText": [
+      "L",
+      "Z"
+    ],
+    "subtypes": [
+      "YROUSD",
+      null,
+      null,
+      [
+        "Storyborn",
+        "Ally"
+      ]
     ]
   },
   "2461": {

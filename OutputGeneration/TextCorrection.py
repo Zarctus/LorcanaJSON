@@ -23,7 +23,7 @@ def correctText(cardText: str) -> str:
 	# There's usually an ink symbol between a number and a dash
 	cardText = re.sub(r"(^| )(\d) ?[0OÒQ©]{,2}( ?[-—]|,)", fr"\1\2 {LorcanaSymbols.INK}\3", cardText, flags=re.MULTILINE)
 	# And word-number-number should be word-number-ink
-	cardText = re.sub(r"^(\w+ \d) ?[OQ0©]$", f"\\1 {LorcanaSymbols.INK}", cardText)
+	cardText = re.sub(r"^(\w+ \d) ?[OÒQ0©]$", f"\\1 {LorcanaSymbols.INK}", cardText)
 	# Normally a closing quote mark should be preceded by a period, except mid-sentence
 	cardText = re.sub(r"([^.,'!?’])”(?!,| \w)", "\\1.”", cardText)
 	# An opening bracket shouldn't have a space after it
@@ -210,8 +210,8 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(r"(?<=con costo \d)0(?= [^o])", " o", cardText)
 		# Fix Song reminder Exert symbol
 		cardText = re.sub(r"(?<=\d\so superiore può ).(?= per\scantare questa canzone gratis)", LorcanaSymbols.EXERT, cardText)
-		# Correct Shift/Trasformazione with an ink symbol
-		cardText = re.sub(fr"(^Trasformazione \d) ?[OÒ{LorcanaSymbols.STRENGTH}]", fr"\1 {LorcanaSymbols.INK}", cardText)
+		# Correct Shift/Trasformazione and Boost/Potenziamento with an ink symbol
+		cardText = re.sub(fr"^(Trasformazione|Potenziamento) (\d) ?[0ÈOÒ{LorcanaSymbols.STRENGTH}]", fr"\1 \2 {LorcanaSymbols.INK}", cardText)
 		# It misses the Strength symbol if it's at the end of a line
 		cardText = re.sub(r"(?<=Riceve \+\d)\n", f" {LorcanaSymbols.STRENGTH}\n", cardText)
 		# It frequently reads the Strength symbol as 'XX or a percentage sign' or leaves a closing bracket
@@ -242,6 +242,8 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(r"(?<=costo \d)0(?=\sinferiore)", " o", cardText)
 		# Misread of 'Illuminatore'
 		cardText = cardText.replace("Ilumi", "Illumi")
+		# Correct accent-less E at the start of lines to with an accent
+		cardText = re.sub(r"^(“?)E\b", "\\1È", cardText)
 
 	if GlobalConfig.language != Language.FRENCH:
 		# Make sure dash in ability cost and in quote attribution is always long-dash
