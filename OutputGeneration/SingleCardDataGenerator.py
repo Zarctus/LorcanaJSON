@@ -45,11 +45,11 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 	cardCodeDigits = divmod(outputCard["id"], 62)
 	outputCard["code"] = _CARD_CODE_LOOKUP[cardCodeDigits[0]] + _CARD_CODE_LOOKUP[cardCodeDigits[1]]
 
-	# Get required data by parsing the card image
 	parsedIdentifier: Optional[IdentifierParser.Identifier] = None
 	if "card_identifier" in inputCard:
 		parsedIdentifier = IdentifierParser.parseIdentifier(inputCard["card_identifier"])
 
+	# Get required data by parsing the card image
 	ocrResult: Optional[OcrResult] = None
 	if GlobalConfig.useCachedOcr and not GlobalConfig.skipOcrCache:
 		ocrResult = OcrCacheHandler.getCachedOcrResult(outputCard["id"])
@@ -241,7 +241,7 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 	else:
 		_logger.error(f"Card {CardUtil.createCardIdentifier(outputCard)} does not contain any image URLs")
 
-	# Store relations to other cards, like (non-)Enchanted and (non-)Promo cards
+	# Store relations to other cards, like the link from Enchanted and Promo cards to their base version
 	otherRelatedCards = relatedCards.getOtherRelatedCards(outputCard["setCode"], outputCard["id"])
 	if otherRelatedCards.epicId:
 		outputCard["epicId"] = otherRelatedCards.epicId
@@ -466,7 +466,6 @@ def parseSingleCard(inputCard: Dict, cardType: str, imageFolder: str, threadLoca
 	fullTextCorrection: Optional[List[str]] = None  # Since the fullText gets created as the last step, if there is a correction for it, save it for later
 	forceAbilityTypeAtIndex: Dict[int, str] = {}  # index to ability type
 	newlineAfterLabelIndex: int = -1
-	mergeEffectIndexWithPrevious: int = -1
 	moveAbilityAtIndexToIndex: Optional[List[int, int]] = None
 	skipFullTextSectionMergeAtIndex: int = -1
 	if cardDataCorrections:
