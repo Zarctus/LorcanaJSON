@@ -3,10 +3,10 @@ from typing import Dict, List, Optional, Union
 
 import GlobalConfig
 from APIScraping.ExternalLinksHandler import ExternalLinksHandler
-from OCR import OcrCacheHandler
 from OCR.OcrResult import OcrResult
 from OutputGeneration import TextCorrection
 from OutputGeneration.AllowedInFormatsHandler import AllowedInFormats, AllowedInFormatsHandler
+from OutputGeneration.ArtistsHandler import ArtistsHandler
 from OutputGeneration.RelatedCardsCollator import RelatedCards
 from OutputGeneration.PromoSourceHandler import PromoSourceHandler
 from OutputGeneration.StoryParser import StoryParser
@@ -20,7 +20,7 @@ _ABILITY_TYPE_CORRECTION_FIELD_TO_ABILITY_TYPE: Dict[str, str] = {"_forceAbility
 
 
 def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler: ExternalLinksHandler, relatedCards: RelatedCards, cardDataCorrections: Dict, storyParser: StoryParser,
-					historicData: Optional[List[Dict]],	allowedCardsHandler: AllowedInFormatsHandler, promoSourceHandler: PromoSourceHandler) -> Optional[Dict]:
+					historicData: Optional[List[Dict]],	allowedCardsHandler: AllowedInFormatsHandler, promoSourceHandler: PromoSourceHandler, artistsHandler: ArtistsHandler) -> Optional[Dict]:
 	# Store some default values
 	outputCard: Dict[str, Union[str, int, List, Dict]] = {
 		"id": inputCard["culture_invariant_id"],
@@ -165,7 +165,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 				_logger.error(f"Unable to parse {ocrResult[outputFieldName]!r} as {outputFieldName} in card ID {outputCard['id']}")
 				outputCard[outputFieldName] = -1
 
-	# Image URLs end with a checksum parameter, we don't need that
+	# Determine the various image data (normal, foil, varnish, etc)
 	if "variants" in inputCard:
 		outputImageData: Dict[str, str] = {}
 		normalImageUrl = None
@@ -858,6 +858,10 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 			outputCard["allowedInFormats"][formatName]["allowedUntilDate"] = allowedInFormat.allowedUntil
 		if allowedInFormat.bannedSince:
 			outputCard["allowedInFormats"][formatName]["bannedSinceDate"] = allowedInFormat.bannedSince
+
+	artistNamesNormalized: Optional[List[str]] = artistsHandler.getNormalizedNames(outputCard["artists"])
+	if artistNamesNormalized:
+		outputCard["artistsNormalized"] = artistNamesNormalized
 
 	promoSource = promoSourceHandler.getSpecialSourceForCard(inputCard)
 	if promoSource:
