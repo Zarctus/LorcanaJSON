@@ -327,5 +327,30 @@ class ExternalLinksHandler:
 			elif parsedIdentifier.variant:
 				variantVersion = string.ascii_lowercase.index(parsedIdentifier.variant.lower()) + 1
 				cardmarketVersionSuffix = f"-V{variantVersion}"
+			else:
+				# If we don't already set a suffix but there exists a corresponding V2 entry
+				# for this set in the external links data, assume the base should use '-V1'.
+				# Compare the stored cardmarketUrl templates (without the placeholder) to find a matching V2 key (>204).
+				template = cardExternalLinks.get("cardmarketUrl")
+				if template and parsedIdentifier.setCode in self._externalLinks:
+					template_base = template.replace("{cardmarketVersionSuffix}", "")
+					for otherKey, otherData in self._externalLinks[parsedIdentifier.setCode].items():
+						if otherData is cardExternalLinks:
+							continue
+						otherTemplate = otherData.get("cardmarketUrl")
+						if not otherTemplate:
+							continue
+						other_base = otherTemplate.replace("{cardmarketVersionSuffix}", "")
+						if other_base != template_base:
+							continue
+						# try to parse the numeric part of the key (before any '/')
+						try:
+							otherNum = int(str(otherKey).split("/", 1)[0])
+						except Exception:
+							continue
+						# If we found a V2-like entry (>204) while this card is base (<=204 or unspecified), force -V1
+						if otherNum > 204 and (not parsedIdentifier.number or parsedIdentifier.number <= 204):
+							cardmarketVersionSuffix = "-V1"
+							break
 			cardExternalLinks["cardmarketUrl"] = cardExternalLinks["cardmarketUrl"].format(languageCode=GlobalConfig.language.code, cardmarketLanguageCode=self._cardmarketLanguageCode, cardmarketVersionSuffix=cardmarketVersionSuffix)
 		return cardExternalLinks
