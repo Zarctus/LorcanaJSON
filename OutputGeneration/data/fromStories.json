@@ -130,6 +130,15 @@
     "matchingNames": ["Anastasia", "Cinderella", "Drizella", "Fairy Godmother", "Grand Duke", "Gus", "Jaq", "Lady Tremaine", "Lucifer", "Perla", "Prince Charming", "Suzy", "The Glass Slipper"],
     "matchingIds": [312, 985, 1196]
   },
+  "darkwingduck": {
+    "displayNames": {
+      "de": "Darkwing Duck",
+      "en": "Darkwing Duck",
+      "fr": "Myster Mask",
+      "it": "Darkwing Duck"
+    },
+    "matchingNames": ["Darkwing Duck"]
+  },
   "ducktales": {
     "displayNames": {
       "de": "DuckTales",
@@ -171,6 +180,15 @@
       "it": "Fantasia"
     },
     "matchingNames": ["Chernabog", "The Firebird"]
+  },
+  "foxandthehound": {
+    "displayNames": {
+      "de": "Cap und Capper",
+      "en": "The Fox and the Hound",
+      "fr": "Rox et Rouky",
+      "it": "Red e Toby nemiciamici"
+    },
+    "matchingNames": ["Fox and the Hound"]
   },
   "frozen": {
     "displayNames": {
@@ -264,7 +282,7 @@
       "fr": "Lilo et Stitch",
       "it": "Lilo & Stitch"
     },
-    "matchingNames": ["Cobra Bubbles", "Gantu", "Jumba Jookiba", "Lilo", "Nani", "Pleakley", "Stitch"],
+    "matchingNames": ["Angel", "Cobra Bubbles", "Dr. Hamsterviel", "Gantu", "Jumba Jookiba", "Lilo", "Nani", "Pleakley", "Reuben", "Stitch"],
     "matchingIds": [1216, 1295, 1298, 1401, 1403, 1412, 1866, 1867]
   },
   "lionking": {
@@ -322,6 +340,15 @@
     },
     "matchingNames": ["Golden Harp"]
   },
+  "mickeyschristmascarol": {
+    "displayNames": {
+      "de": "Mickys Weihnachtserzählung",
+      "en": "Mickey's Christmas Carol",
+      "fr": "Le Noël de Mickey",
+      "it": "Canto di Natale di Topolino"
+    },
+    "matchingNames": ["Mickey's Christmas Carol"]
+  },
   "moana": {
     "displayNames": {
       "de": "Vaiana",
@@ -369,6 +396,15 @@
       "it": "Pinocchio"
     },
     "matchingNames": ["Blue Fairy", "Figaro", "Geppetto", "Honest John", "Jiminy Cricket", "Monstro", "Pinocchio", "The Coachman"]
+  },
+  "pocahontas": {
+    "displayNames": {
+      "de": "Pocahontas",
+      "en": "Pocahontas",
+      "fr": "Pocahontas",
+      "it": "Pocahontas"
+    },
+    "matchingNames": ["Pocahontas"]
   },
   "princessandthefrog": {
     "displayNames": {

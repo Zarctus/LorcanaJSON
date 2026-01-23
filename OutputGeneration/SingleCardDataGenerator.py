@@ -335,7 +335,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 	if ocrResult.abilityLabels:
 		inputAbilityNames: Optional[List[str]] = None
 		for abilityIndex in range(len(ocrResult.abilityLabels)):
-			abilityName = TextCorrection.correctPunctuation(ocrResult.abilityLabels[abilityIndex].replace("''", "'").replace("ß", "ẞ")).lstrip("-+_.… ").rstrip(" %:").upper()
+			abilityName = TextCorrection.correctPunctuation(ocrResult.abilityLabels[abilityIndex].replace("''", "'").replace("ß", "ẞ")).lstrip("-+*_.… ").rstrip(" %:").upper()
 			originalAbilityName = abilityName
 			abilityName = re.sub(r"^\d ", "", abilityName)
 			abilityName = re.sub(r"(?<=\w) ?[.;7|>»”©(\"=~_]{1,2}$", "", abilityName)
@@ -389,21 +389,24 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 							isInInputAbilityName = False
 							inputAbilityNames.append(" ".join(inputAbilityNameParts))
 							inputAbilityNameParts = []
-				inputAbilityName: str = inputAbilityNames[abilityIndex]
-				characterMismatchCount: int = 0
-				abilityNameBeforeSpaceCorrection = abilityName
-				for characterIndex in range(min(len(inputAbilityName), len(abilityName))):
-					inputAbilityNameCharacter = inputAbilityName[characterIndex]
-					outputAbilityNameCharacter = abilityName[characterIndex]
-					if inputAbilityNameCharacter == " " and outputAbilityNameCharacter != " ":
-						abilityName = abilityName[:characterIndex] + " " + abilityName[characterIndex:]
-					elif inputAbilityNameCharacter != outputAbilityNameCharacter:
-						# Sometimes Ravensburger set a wrong ability name. Check for that, so we don't add spaces from a different sentence
-						characterMismatchCount += 1
-						if characterMismatchCount == 4:
-							_logger.info(f"Too many characters mismatch between input abiilty name {inputAbilityName} and output {abilityName} in card {CardUtil.createCardIdentifier(outputCard)}, aborting missing-spaces check")
-							abilityName = abilityNameBeforeSpaceCorrection
-							break
+				if abilityIndex >= len(inputAbilityNames):
+					_logger.error(f"Trying to read input ability name index {abilityIndex} but there are only {len(inputAbilityNames)} names, in card {CardUtil.createCardIdentifier(outputCard)}")
+				else:
+					inputAbilityName: str = inputAbilityNames[abilityIndex]
+					characterMismatchCount: int = 0
+					abilityNameBeforeSpaceCorrection = abilityName
+					for characterIndex in range(min(len(inputAbilityName), len(abilityName))):
+						inputAbilityNameCharacter = inputAbilityName[characterIndex]
+						outputAbilityNameCharacter = abilityName[characterIndex]
+						if inputAbilityNameCharacter == " " and outputAbilityNameCharacter != " ":
+							abilityName = abilityName[:characterIndex] + " " + abilityName[characterIndex:]
+						elif inputAbilityNameCharacter != outputAbilityNameCharacter:
+							# Sometimes Ravensburger set a wrong ability name. Check for that, so we don't add spaces from a different sentence
+							characterMismatchCount += 1
+							if characterMismatchCount == 4:
+								_logger.info(f"Too many characters mismatch between input abiilty name {inputAbilityName} and output {abilityName} in card {CardUtil.createCardIdentifier(outputCard)}, aborting missing-spaces check")
+								abilityName = abilityNameBeforeSpaceCorrection
+								break
 			if abilityName != originalAbilityName:
 				_logger.info(f"Corrected ability name from {originalAbilityName!r} to {abilityName!r}")
 			abilityEffect = TextCorrection.correctText(TextCorrection.correctPunctuation(ocrResult.abilityTexts[abilityIndex])).replace("‘", "")
@@ -531,6 +534,12 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 				outputCard["abilities"].insert(insertAbilityIndex, {"effect": insertAbilityText, "fullText": insertAbilityText})
 				if insertAbilityData and isinstance(insertAbilityData[0], str):
 					outputCard["abilities"][insertAbilityIndex]["name"] = insertAbilityData.pop(0)
+		removeAbilitiesAtIndexes: Optional[List[int]] = None
+		if "_removeAbilitiesAtIndexes" in cardDataCorrections:
+			removeAbilitiesAtIndexes = cardDataCorrections.pop("_removeAbilitiesAtIndexes")
+			if "abilities" not in outputCard:
+				_logger.warning(f"Correction to remove ability from {CardUtil.createCardIdentifier(outputCard)} but card doesn't have abilities")
+				removeAbilitiesAtIndexes = None
 		for correctionAbilityField, abilityTypeCorrection in _ABILITY_TYPE_CORRECTION_FIELD_TO_ABILITY_TYPE.items():
 			if correctionAbilityField in cardDataCorrections:
 				abilityIndexToCorrect = cardDataCorrections.pop(correctionAbilityField)
@@ -550,8 +559,12 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 		for fieldName, correctionList in cardDataCorrections.items():
 			TextCorrection.correctCardFieldFromList(outputCard, fieldName, correctionList)
 		# If newlines got added through a correction, we may need to split the ability or effect in two
-		if "abilities" in cardDataCorrections and "abilities" in outputCard:
+		if "abilities" in outputCard and ("abilities" in cardDataCorrections or removeAbilitiesAtIndexes):
 			for abilityIndex in range(len(outputCard["abilities"]) - 1, -1, -1):
+				if removeAbilitiesAtIndexes and abilityIndex in removeAbilitiesAtIndexes:
+					_logger.info(f"Removing ability at index {abilityIndex} in card {CardUtil.createCardIdentifier(outputCard)}")
+					outputCard["abilities"].pop(abilityIndex)
+					continue
 				ability = outputCard["abilities"][abilityIndex]
 				abilityTextFieldName = "fullText" if "fullText" in ability else "effect"
 				if not ability[abilityTextFieldName]:
