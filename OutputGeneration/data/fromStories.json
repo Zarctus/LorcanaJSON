@@ -131,13 +131,13 @@
     "matchingIds": [312, 985, 1196]
   },
   "darkwingduck": {
+    "isPriorityStory": true,
     "displayNames": {
       "de": "Darkwing Duck",
       "en": "Darkwing Duck",
       "fr": "Myster Mask",
       "it": "Darkwing Duck"
-    },
-    "matchingNames": ["Darkwing Duck"]
+    }
   },
   "ducktales": {
     "displayNames": {
@@ -173,6 +173,7 @@
     }
   },
   "fantasia": {
+    "isFallbackStory": true,
     "displayNames": {
       "de": "Fantasia",
       "en": "Fantasia",
@@ -316,7 +317,7 @@
       "it": "Lorcana"
     },
     "matchingNames": ["Chromicon", "Hexwell", "Martin", "Shanzay", "The Great Illuminary", "Venturo"],
-    "matchingIds": [380, 535, 789, 792, 825, 859, 891, 952, 986, 987, 1020, 1055, 1125, 1179, 1267, 1300, 1301, 1362, 1399, 1516, 1552, 1784],
+    "matchingIds": [380, 535, 789, 792, 825, 859, 891, 952, 986, 987, 1020, 1055, 1125, 1179, 1267, 1300, 1301, 1362, 1399, 1516, 1552, 1784, 2561],
     "matchingFields": {
       "card_identifier": " Q\\d$"
     }
@@ -332,6 +333,7 @@
     "matchingIds": [718, 784, 1154, 1155, 2353, 2408, 2426]
   },
   "mickeyandthebeanstalk": {
+    "isPriorityStory": true,
     "displayNames": {
       "de": "Micky und die Kletterbohne",
       "en": "Mickey and the Beanstalk",
@@ -341,13 +343,13 @@
     "matchingNames": ["Golden Harp"]
   },
   "mickeyschristmascarol": {
+    "isPriorityStory": true,
     "displayNames": {
       "de": "Mickys Weihnachtserzählung",
       "en": "Mickey's Christmas Carol",
       "fr": "Le Noël de Mickey",
       "it": "Canto di Natale di Topolino"
-    },
-    "matchingNames": ["Mickey's Christmas Carol"]
+    }
   },
   "moana": {
     "displayNames": {
@@ -486,6 +488,7 @@
     "matchingIds": [785, 1088, 1515, 1644]
   },
   "sorcerersapprentice": {
+    "isPriorityStory": true,
     "displayNames": {
       "de": "Der Zauberlehrling",
       "en": "The Sorcerer's Apprentice",
