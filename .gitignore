@@ -8,3 +8,5 @@ __pycache__/
 /website/
 
 /config.json
+
+getOfficialIds.php
