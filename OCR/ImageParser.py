@@ -176,7 +176,7 @@ class ImageParser:
 			result["identifier"] = self._getSubImageAndText(greyCardImage, cardLayout.identifier)
 
 		# Greyscale images work better, so get one from just the textbox
-		greyTextboxImage = self._getSubImage(greyCardImage, cardLayout.textbox)
+		greyTextboxImage = self._getSubImage(greyCardImage, cardLayout.textbox, parseSettings.textboxOffset, parseSettings.textboxRightOffset*-1)
 		textboxWidth = greyTextboxImage.shape[1]
 		textboxHeight = greyTextboxImage.shape[0]
 
@@ -194,7 +194,7 @@ class ImageParser:
 				isCurrentlyInLabel: bool = False
 				currentCoords = [0, 0, 0]  # First is top Y, second is bottom Y, third is right X
 				for y in range(textboxHeight):
-					pixelValue = greyTextboxImage[y, parseSettings.textboxOffset]
+					pixelValue = greyTextboxImage[y, 0]
 					if isCurrentlyInLabel:
 						# Check if the pixel got lighter, indicating we left the label block (or darker if it's a light label)
 						if pixelValue > parseSettings.labelEndThreshold if parseSettings.labelIsDarkerThanBackground else pixelValue < parseSettings.labelEndThreshold:
@@ -211,7 +211,7 @@ class ImageParser:
 						yToCheck = min(textboxHeight - 1, y + 1)  # Check a few lines down to prevent weirdness with the edge of the label box
 						# Find the width of the label. Since accented characters can reach the top of the label, we need several light pixels in succession to be sure the label ended
 						successiveLightPixels: int = 0
-						for x in range(parseSettings.textboxOffset, textboxWidth - parseSettings.textboxRightOffset):
+						for x in range(textboxWidth):
 							checkValue = greyTextboxImage[yToCheck, x]
 							if checkValue > parseSettings.labelEndThreshold if parseSettings.labelIsDarkerThanBackground else checkValue < parseSettings.labelEndThreshold:
 								successiveLightPixels += 1
@@ -250,8 +250,9 @@ class ImageParser:
 					self._logger.debug(f"In line fallback method found {len(lines):,} lines: {lines}")
 					if showImage:
 						textboxLinesImage = greyTextboxImage.copy()
+						lineColor = (0, 0, 0) if parseSettings.labelTextColor == ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND else (255, 255, 255)
 						for line in lines:
-							cv2.line(textboxLinesImage, (line[0][0], line[0][1]), (line[0][2], line[0][3]), (255, 255, 255), 2, cv2.LINE_AA)
+							cv2.line(textboxLinesImage, (line[0][0], line[0][1]), (line[0][2], line[0][3]), lineColor, 2, cv2.LINE_AA)
 					lastBottomY = 0
 					for line in lines:
 						# Check if this is a line at the top or bottom of a label
@@ -267,6 +268,9 @@ class ImageParser:
 								del labelCoords[-1]
 							continue
 						isTopLine = greyTextboxImage[lineRightY - 1, lineRightX] > greyTextboxImage[lineRightY + 1, lineRightX]  # Images use y,x
+						if not parseSettings.labelIsDarkerThanBackground:
+							# Since 'isTopLine' checks whether above is lighter than below, this is wrong when the label is light; correct for that
+							isTopLine = not isTopLine
 						topY = bottomY = lineRightY
 						# Assume the height of the average label (it can vary based on font size, but accurately determining it is complicated, error-prone, and not really necessary)
 						if isTopLine:
@@ -290,8 +294,6 @@ class ImageParser:
 			if labelCoords:
 				flavorTextImageTop = labelCoords[-1][1] + 5
 				flavorTextLineDetectionCroppedImage = greyTextboxImage[flavorTextImageTop:textboxHeight, 0:textboxWidth]
-			if parseSettings.textboxOffset or parseSettings.textboxRightOffset:
-				flavorTextLineDetectionCroppedImage = flavorTextLineDetectionCroppedImage[0:flavorTextLineDetectionCroppedImage.shape[0], parseSettings.textboxOffset:flavorTextLineDetectionCroppedImage.shape[1] - parseSettings.textboxRightOffset]
 			flavorTextEdgeDetectedImage = cv2.Canny(flavorTextLineDetectionCroppedImage, 50, 200)
 			lines = cv2.HoughLinesP(flavorTextEdgeDetectedImage, 1, math.pi / 180, 150, minLineLength=70)
 			if lines is None and hasFlavorText is True:
@@ -329,7 +331,7 @@ class ImageParser:
 						self._logger.warning(f"Flavortext separator Y {flavorTextSeparatorY} plus margin {_FLAVORTEXT_MARGIN} is larger than textbox height {textboxHeight} in card {cardId}")
 						hasFlavorText = False
 					else:
-						flavorTextImage = self._convertToThresholdImage(greyTextboxImage[flavorTextSeparatorY + _FLAVORTEXT_MARGIN:textboxHeight, parseSettings.textboxOffset:textboxWidth - parseSettings.textboxRightOffset], parseSettings.thresholdTextColor)
+						flavorTextImage = self._convertToThresholdImage(greyTextboxImage[flavorTextSeparatorY + _FLAVORTEXT_MARGIN:textboxHeight, 0:textboxWidth], parseSettings.thresholdTextColor)
 						flavourText = self._imageToString(flavorTextImage)
 						result["flavorText"] = ImageAndText(flavorTextImage, flavourText)
 						self._logger.debug(f"{flavourText=}")
@@ -367,7 +369,7 @@ class ImageParser:
 
 			# There might be text above the label coordinates too (abilities text), especially if there aren't any labels. Get that text as well
 			if previousBlockTopY > 35:
-				remainingTextImage = self._convertToThresholdImage(greyTextboxImage[0:previousBlockTopY, parseSettings.textboxOffset:textboxWidth - parseSettings.textboxRightOffset], parseSettings.thresholdTextColor)
+				remainingTextImage = self._convertToThresholdImage(greyTextboxImage[0:previousBlockTopY, 0:textboxWidth], parseSettings.thresholdTextColor)
 				if parseSettings.cardTextHasOutline:
 					cv2.floodFill(remainingTextImage, None, (1, 1), 0)
 				remainingText = self._imageToString(remainingTextImage)
@@ -464,8 +466,8 @@ class ImageParser:
 		return ocrResult
 
 	@staticmethod
-	def _getSubImage(image, imageArea: ImageArea.ImageArea) -> cv2.Mat:
-		return image[imageArea.coords.top:imageArea.coords.bottom, imageArea.coords.left:imageArea.coords.right]
+	def _getSubImage(image, imageArea: ImageArea.ImageArea, offsetLeft: int = 0, offsetRight: int = 0) -> cv2.Mat:
+		return image[imageArea.coords.top:imageArea.coords.bottom, imageArea.coords.left+offsetLeft:imageArea.coords.right+offsetRight]
 
 	@staticmethod
 	def _convertToThresholdImage(greyscaleImage, textColour: ImageArea.TextColour) -> cv2.Mat:

@@ -15,7 +15,7 @@ from util import CardUtil, IdentifierParser, Language, LorcanaSymbols
 _logger = logging.getLogger("LorcanaJSON")
 _CARD_CODE_LOOKUP = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 _KEYWORD_REGEX = re.compile(r"(?:^|\n)([A-ZÀ][^.]+)(?=\s\([A-Z])")
-_KEYWORD_REGEX_WITHOUT_REMINDER = re.compile(r"^([A-ZÀ][^ ]{2,}|À)( ([dl]['’])?[A-Zasu][^ ]{2,})?( \d)?( .)?$")
+_KEYWORD_REGEX_WITHOUT_REMINDER = re.compile(r"^([A-ZÀ][^ ]{2,}|À)( ([dl]['’])?[A-Zasu][^ ]{2,})?( \d+)?( .)?$")
 _ABILITY_TYPE_CORRECTION_FIELD_TO_ABILITY_TYPE: Dict[str, str] = {"_forceAbilityIndexToActivated": "activated", "_forceAbilityIndexToKeyword": "keyword", "_forceAbilityIndexToStatic": "static", "_forceAbilityIndexToTriggered": "triggered"}
 
 
@@ -163,33 +163,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 		_logger.error(f"Card {CardUtil.createCardIdentifier(outputCard)} does not contain any image URLs")
 
 	# Store relations to other cards, like the link from Enchanted and Promo cards to their base version
-	otherRelatedCards = relatedCards.getOtherRelatedCards(outputCard["setCode"], outputCard["id"])
-	if otherRelatedCards.epicId:
-		outputCard["epicId"] = otherRelatedCards.epicId
-	elif otherRelatedCards.nonEpicId:
-		outputCard["baseId"] = otherRelatedCards.nonEpicId
-	if otherRelatedCards.enchantedId:
-		outputCard["enchantedId"] = otherRelatedCards.enchantedId
-	elif otherRelatedCards.nonEnchantedId:
-		outputCard["baseId"] = otherRelatedCards.nonEnchantedId
-	if otherRelatedCards.iconicId:
-		outputCard["iconicId"] = otherRelatedCards.iconicId
-	elif otherRelatedCards.nonIconicId:
-		outputCard["baseId"] = otherRelatedCards.nonIconicId
-	if otherRelatedCards.nonPromoId:
-		if "baseId" in outputCard:
-			_logger.error(f"baseId is already set to {outputCard['baseId']} from a rarity, not setting it to non-promo ID {otherRelatedCards.nonPromoId} for card {CardUtil.createCardIdentifier(outputCard)}")
-		else:
-			outputCard["baseId"] = otherRelatedCards.nonPromoId
-	elif otherRelatedCards.promoIds:
-		outputCard["promoIds"] = otherRelatedCards.promoIds
-	if otherRelatedCards.otherVariantIds:
-		outputCard["variantIds"] = otherRelatedCards.otherVariantIds
-		outputCard["variant"] = parsedIdentifier.variant
-	if otherRelatedCards.reprintedAsIds:
-		outputCard["reprintedAsIds"] = otherRelatedCards.reprintedAsIds
-	elif otherRelatedCards.reprintOfId:
-		outputCard["reprintOfId"] = otherRelatedCards.reprintOfId
+	_parseRelatedCards(relatedCards, parsedIdentifier, outputCard)
 
 	# Store the different parts of the card text, correcting some values if needed
 	if ocrResult.flavorText:
@@ -206,6 +180,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 				flavorText = flavorText[:-2]
 			flavorText = flavorText.replace("\nInschrift", "\n—Inschrift")
 		outputCard["flavorText"] = flavorText
+
 	abilities: List[Dict[str, str]] = []
 	effects: List[str] = []
 	if ocrResult.remainingText:
@@ -228,7 +203,10 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 				_logger.info(f"Remaining text for card {CardUtil.createCardIdentifier(outputCard)} {remainingTextLine!r} is too short, discarding")
 				continue
 			# Check if this is a keyword ability
-			if outputCard["type"] == GlobalConfig.translation.Character or outputCard["type"] == GlobalConfig.translation.Action or (parsedIdentifier.setCode == "Q2" and outputCard["type"] == GlobalConfig.translation.Location):
+			if outputCard["type"] == GlobalConfig.translation.Item:
+				# Some items ("Peter Pan's Dagger", ID 351; "Sword in the Stone", ID 352) have an ability without an ability name label. Store these as abilities too
+				abilities.append({"effect": remainingTextLine})
+			else:
 				if remainingTextLine.startswith("(") and ")" in remainingText:
 					# Song cards have reminder text of how Songs work, and for instance 'Flotsam & Jetsam - Entangling Eels' (ID 735) has a bracketed phrase at the bottom
 					# Treat those as static abilities
@@ -251,16 +229,13 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 					keywordLines.append(remainingTextLine)
 				if keywordLines:
 					for keywordLine in keywordLines:
-						abilities.append({"type": "keyword", "fullText": keywordLine.rstrip()})
+						abilities.append({"type": "keyword", "fullText": TextCorrection.correctText(keywordLine.rstrip())})
 						# These entries will get more fleshed out after the corrections (if any) are applied, to prevent having to correct multiple fields
 				elif len(remainingTextLine) > 10:
 					# Since this isn't a named or keyword ability, assume it's a one-off effect
 					effects.append(remainingTextLine)
 				else:
 					_logger.debug(f"Remaining textline is {remainingTextLine!r}, too short to parse, discarding")
-			elif outputCard["type"] == GlobalConfig.translation.Item:
-				# Some items ("Peter Pan's Dagger", ID 351; "Sword in the Stone", ID 352) have an ability without an ability name label. Store these as abilities too
-				abilities.append({"effect": remainingTextLine})
 
 	if ocrResult.abilityLabels:
 		inputAbilityNames: Optional[List[str]] = None
@@ -352,83 +327,8 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 	if effects:
 		outputCard["effects"] = effects
 
-	# Some cards have errata or clarifications, both in the 'additional_info' fields. Split those up
-	if inputCard.get("additional_info", None):
-		errata = []
-		clarifications = []
-		for infoEntry in inputCard["additional_info"]:
-			# The text has multiple \r\n's as newlines, reduce that to just a single \n
-			infoText: str = re.sub(r" ?(\\r\\n|\r\n)+ ?", "\n", infoEntry["body"]).strip().replace("\t", " ")
-			# The text uses unicode characters in some places, replace those with their simple equivalents
-			infoText = infoText.replace("’", "'").replace("–", "-").replace("“", "\"").replace("”", "\"")
-			# Sometimes they write cardnames as "basename- subtitle", add the space before the dash back in
-			infoText = re.sub(r"(\w)- ", r"\1 - ", infoText)
-			# The text uses {I} for ink and {S} for strength, replace those with our symbols
-			infoText = infoText.format(E=LorcanaSymbols.EXERT, I=LorcanaSymbols.INK, L=LorcanaSymbols.LORE, S=LorcanaSymbols.STRENGTH, W=LorcanaSymbols.WILLPOWER)
-			if infoEntry["title"].startswith("Errata") or infoEntry["title"].startswith("Ergänzung"):
-				if " - " in infoEntry["title"]:
-					# There's a suffix explaining what field the errata is about, prepend it to the text
-					infoText = infoEntry["title"].split(" - ")[1] + "\n" + infoText
-				errata.append(infoText)
-			elif infoEntry["title"].startswith("FAQ") or infoEntry["title"].startswith("Keyword") or infoEntry["title"] == "Good to know" or infoEntry["title"] == "Info":
-				# Sometimes they cram multiple questions and answers into one entry, split those up into separate clarifications
-				infoEntryClarifications = re.split(r"\s*\n+(?=[DFQ] ?:)", infoText)
-				clarifications.extend(infoEntryClarifications)
-			# Some German cards have an artist correction in their 'additional_info', but that's already correct in the data, so ignore that
-			# Bans are listed as additional info, but we handle that separately, so ignore those
-			# For other additional_info types, print an error, since that should be handled
-			elif infoEntry["title"] != "Illustratorin" and infoEntry["title"] != "Ban":
-				_logger.warning(f"Unknown 'additional_info' type '{infoEntry['title']}' in card {CardUtil.createCardIdentifier(outputCard)}")
-		if errata:
-			outputCard["errata"] = errata
-		if clarifications:
-			outputCard["clarifications"] = clarifications
-
-	# Determine subtypes and their order. Items and Actions have an empty subtypes list, ignore those
-	if ocrResult.subtypesText:
-		subtypes: List[str] = re.sub(fr"[^A-Za-zàäèéöü{LorcanaSymbols.SEPARATOR} ]", "", ocrResult.subtypesText).split(LorcanaSymbols.SEPARATOR_STRING)
-		if "ltem" in subtypes:
-			subtypes[subtypes.index("ltem")] = "Item"
-		# 'Seven Dwarves' is a subtype, but it might get split up into two types. Turn it back into one subtype
-		sevenDwarvesCheckTypes = None
-		if GlobalConfig.language == Language.ENGLISH:
-			sevenDwarvesCheckTypes = ("Seven", "Dwarfs")
-		elif GlobalConfig.language == Language.FRENCH:
-			sevenDwarvesCheckTypes = ("Sept", "Nains")
-		elif GlobalConfig.language == Language.GERMAN:
-			sevenDwarvesCheckTypes = ("Sieben", "Zwerge")
-		elif GlobalConfig.language == Language.ITALIAN:
-			sevenDwarvesCheckTypes = ("Sette", "Nani")
-		if sevenDwarvesCheckTypes and sevenDwarvesCheckTypes[0] in subtypes and sevenDwarvesCheckTypes[1] in subtypes:
-			subtypes.remove(sevenDwarvesCheckTypes[1])
-			subtypes[subtypes.index(sevenDwarvesCheckTypes[0])] = " ".join(sevenDwarvesCheckTypes)
-		for subtypeIndex in range(len(subtypes) - 1, -1, -1):
-			subtype = subtypes[subtypeIndex]
-			if GlobalConfig.language in (Language.ENGLISH, Language.FRENCH) and subtype != "Floodborn" and re.match(r"^[EF][il][aeo][aeo]d[^b]?b?[^b]?[aeo](r[an][es+-]?|m)$", subtype):
-				_logger.debug(f"Correcting '{subtype}' to 'Floodborn'")
-				subtypes[subtypeIndex] = "Floodborn"
-			elif GlobalConfig.language == Language.ENGLISH and subtype != "Hero" and re.match(r"e?H[eo]r[aeos]", subtype):
-				subtypes[subtypeIndex] = "Hero"
-			elif re.match("I?Hl?usion", subtype):
-				subtypes[subtypeIndex] = "Illusion"
-			elif GlobalConfig.language == Language.ITALIAN and subtype == "lena":
-				subtypes[subtypeIndex] = "Iena"
-			elif subtype == "Hros":
-				subtypes[subtypeIndex] = "Héros"
-			elif subtype == "toryborn" or subtype == "Storyhorn":
-				subtypes[subtypeIndex] = "Storyborn"
-			# Remove short subtypes, probably erroneous
-			elif len(subtype) < (4 if GlobalConfig.language == Language.ENGLISH else 3) and subtype != "Re":  # 'Re' is Italian for 'King', so it's a valid subtype
-				_logger.debug(f"Removing subtype '{subtype}', too short")
-				subtypes.pop(subtypeIndex)
-			elif not re.search("[aeiouAEIOU]", subtype):
-				_logger.debug(f"Removing subtype '{subtype}', no vowels so it's probably invalid")
-				subtypes.pop(subtypeIndex)
-		# Non-character cards have their main type as their (first) subtype, remove those
-		if subtypes and (subtypes[0] == GlobalConfig.translation.Action or subtypes[0] == GlobalConfig.translation.Item or subtypes[0] == GlobalConfig.translation.Location):
-			subtypes.pop(0)
-		if subtypes:
-			outputCard["subtypes"] = subtypes
+	_parseSubtypes(ocrResult.subtypesText, outputCard)
+	_parseAdditionalInfo(inputCard, outputCard)
 
 	# Card-specific corrections
 	externalLinksCorrection: Optional[List[str]] = None  # externalLinks depends on correct fullIdentifier, which may have a correction, but it also might need a correction itself. So store it for now, and correct it later
@@ -452,7 +352,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 				lastAbility["effect"] = lastAbilityText[:keywordMatch.start()]
 				outputCard["abilities"].append({"type": "keyword", "fullText": keywordText})
 			else:
-				_logger.error(f"'keywordsLast' set but keyword couldn't be found for card {outputCard['id']}")
+				_logger.error(f"'_moveKeywordsLast' set but keyword couldn't be found for card {CardUtil.createCardIdentifier(outputCard)}")
 		if "_insertAbilityAtIndex" in cardDataCorrections:
 			if "abilities" not in outputCard:
 				outputCard["abilities"]: List[Dict] = []
@@ -470,6 +370,12 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 			if "abilities" not in outputCard:
 				_logger.warning(f"Correction to remove ability from {CardUtil.createCardIdentifier(outputCard)} but card doesn't have abilities")
 				removeAbilitiesAtIndexes = None
+		removeEffectsAtIndexes: Optional[List[int]] = None
+		if "_removeEffectsAtIndexes" in cardDataCorrections:
+			removeEffectsAtIndexes = cardDataCorrections.pop("_removeEffectsAtIndexes")
+			if "effects" not in outputCard:
+				_logger.warning(f"Correction to remove effect from {CardUtil.createCardIdentifier(outputCard)} but card doesn't have effects")
+				removeEffectsAtIndexes = None
 		for correctionAbilityField, abilityTypeCorrection in _ABILITY_TYPE_CORRECTION_FIELD_TO_ABILITY_TYPE.items():
 			if correctionAbilityField in cardDataCorrections:
 				abilityIndexToCorrect = cardDataCorrections.pop(correctionAbilityField)
@@ -516,6 +422,10 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 					outputCard["effects"].insert(effectIndex + 1, secondEffect)
 			# Splitting effects may lead to one or more effects being a keyword ability instead, correct that
 			for effectIndex in range(len(outputCard["effects"]) - 1, -1, -1):
+				if removeEffectsAtIndexes and effectIndex in removeEffectsAtIndexes:
+					_logger.info(f"Removing effect at index {effectIndex} in card {CardUtil.createCardIdentifier(outputCard)}")
+					outputCard["effects"].pop(effectIndex)
+					continue
 				effectText = outputCard["effects"][effectIndex]
 				if _KEYWORD_REGEX.match(effectText) or _KEYWORD_REGEX_WITHOUT_REMINDER.match(effectText):
 					_logger.info(f"Effect at index {effectIndex} is a keyword ability, moving it to 'abilities', in card {CardUtil.createCardIdentifier(outputCard)}")
@@ -533,7 +443,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 		# Sometimes ability names get missed, apply the correction to fix this
 		if addNameToAbilityAtIndex:
 			if addNameToAbilityAtIndex[0] >= len(outputCard["abilities"]):
-				_logger.error(f"Supplied name '{addNameToAbilityAtIndex[1]}' to add to ability at index {addNameToAbilityAtIndex[0]} of card {CardUtil.createCardIdentifier(outputCard)}, but maximum ability index is {len(outputCard['abilities'])}")
+				_logger.error(f"Supplied name '{addNameToAbilityAtIndex[1]}' to add to ability at index {addNameToAbilityAtIndex[0]} of card {CardUtil.createCardIdentifier(outputCard)}, but there are only {len(outputCard['abilities'])} abilities")
 			elif outputCard["abilities"][addNameToAbilityAtIndex[0]].get("name", None):
 				_logger.error(f"Supplied name '{addNameToAbilityAtIndex[1]}' to add to ability at index {addNameToAbilityAtIndex[0]} of card {CardUtil.createCardIdentifier(outputCard)}, but ability already has name '{outputCard['abilities'][addNameToAbilityAtIndex[0]]['name']}'")
 			else:
@@ -838,6 +748,40 @@ def _toTitleCase(s: str) -> str:
 				s = s.replace(toLowerCaseWord, toLowerCaseWord.lower())
 	return s
 
+def _parseAdditionalInfo(inputCard: Dict, outputCard: Dict):
+	# Some cards have errata or clarifications, both in the 'additional_info' fields. Split those up
+	if not inputCard.get("additional_info", None):
+		return
+	errata = []
+	clarifications = []
+	for infoEntry in inputCard["additional_info"]:
+		# The text has multiple \r\n's as newlines, reduce that to just a single \n
+		infoText: str = re.sub(r" ?(\\r\\n|\r\n)+ ?", "\n", infoEntry["body"]).strip().replace("\t", " ")
+		# The text uses unicode characters in some places, replace those with their simple equivalents
+		infoText = infoText.replace("’", "'").replace("–", "-").replace("“", "\"").replace("”", "\"")
+		# Sometimes they write cardnames as "basename- subtitle", add the space before the dash back in
+		infoText = re.sub(r"(\w)- ", r"\1 - ", infoText)
+		# The text uses {I} for ink and {S} for strength, replace those with our symbols
+		infoText = infoText.format(E=LorcanaSymbols.EXERT, I=LorcanaSymbols.INK, L=LorcanaSymbols.LORE, S=LorcanaSymbols.STRENGTH, W=LorcanaSymbols.WILLPOWER)
+		if infoEntry["title"].startswith("Errata") or infoEntry["title"].startswith("Ergänzung"):
+			if " - " in infoEntry["title"]:
+				# There's a suffix explaining what field the errata is about, prepend it to the text
+				infoText = infoEntry["title"].split(" - ")[1] + "\n" + infoText
+			errata.append(infoText)
+		elif infoEntry["title"].startswith("FAQ") or infoEntry["title"].startswith("Keyword") or infoEntry["title"] == "Good to know" or infoEntry["title"] == "Info":
+			# Sometimes they cram multiple questions and answers into one entry, split those up into separate clarifications
+			infoEntryClarifications = re.split(r"\s*\n+(?=[DFQ] ?:)", infoText)
+			clarifications.extend(infoEntryClarifications)
+		# Some German cards have an artist correction in their 'additional_info', but that's already correct in the data, so ignore that
+		# Bans are listed as additional info, but we handle that separately, so ignore those
+		# For other additional_info types, print an error, since that should be handled
+		elif infoEntry["title"] != "Illustratorin" and infoEntry["title"] != "Ban":
+			_logger.warning(f"Unknown 'additional_info' type '{infoEntry['title']}' in card {CardUtil.createCardIdentifier(outputCard)}")
+	if errata:
+		outputCard["errata"] = errata
+	if clarifications:
+		outputCard["clarifications"] = clarifications
+
 def _parseNameFields(inputCard: Dict, outputCard: Dict, ocrResult: OcrResult):
 	outputCard["name"] = TextCorrection.correctPunctuation(inputCard["name"].strip() if "name" in inputCard else ocrResult.name).replace("’", "'").replace("‘", "'").replace("''", "'")
 	if outputCard["name"] == "Balais Magiques":
@@ -873,3 +817,79 @@ def _parseNameFields(inputCard: Dict, outputCard: Dict, ocrResult: OcrResult):
 	outputCard["simpleName"] = re.sub(r"[!.,…?“”\"]", "", outputCard["simpleName"].lower()).rstrip()
 	for replacementChar, charsToReplace in {"a": "[àâäā]", "c": "ç", "e": "[èêé]", "i": "[îïí]", "o": "[ôö]", "u": "[ùûü]", "oe": "œ", "ss": "ß"}.items():
 		outputCard["simpleName"] = re.sub(charsToReplace, replacementChar, outputCard["simpleName"])
+
+def _parseRelatedCards(relatedCards: RelatedCards, parsedIdentifier: IdentifierParser.Identifier, outputCard: Dict):
+	otherRelatedCards = relatedCards.getOtherRelatedCards(outputCard["setCode"], outputCard["id"])
+	if otherRelatedCards.epicId:
+		outputCard["epicId"] = otherRelatedCards.epicId
+	elif otherRelatedCards.nonEpicId:
+		outputCard["baseId"] = otherRelatedCards.nonEpicId
+	if otherRelatedCards.enchantedId:
+		outputCard["enchantedId"] = otherRelatedCards.enchantedId
+	elif otherRelatedCards.nonEnchantedId:
+		outputCard["baseId"] = otherRelatedCards.nonEnchantedId
+	if otherRelatedCards.iconicId:
+		outputCard["iconicId"] = otherRelatedCards.iconicId
+	elif otherRelatedCards.nonIconicId:
+		outputCard["baseId"] = otherRelatedCards.nonIconicId
+	if otherRelatedCards.nonPromoId:
+		if "baseId" in outputCard:
+			_logger.error(f"baseId is already set to {outputCard['baseId']} from a rarity, not setting it to non-promo ID {otherRelatedCards.nonPromoId} for card {CardUtil.createCardIdentifier(outputCard)}")
+		else:
+			outputCard["baseId"] = otherRelatedCards.nonPromoId
+	elif otherRelatedCards.promoIds:
+		outputCard["promoIds"] = otherRelatedCards.promoIds
+	if otherRelatedCards.otherVariantIds:
+		outputCard["variantIds"] = otherRelatedCards.otherVariantIds
+		outputCard["variant"] = parsedIdentifier.variant
+	if otherRelatedCards.reprintedAsIds:
+		outputCard["reprintedAsIds"] = otherRelatedCards.reprintedAsIds
+	elif otherRelatedCards.reprintOfId:
+		outputCard["reprintOfId"] = otherRelatedCards.reprintOfId
+
+def _parseSubtypes(subtypesText: Optional[str], outputCard: Dict):
+	if not subtypesText:
+		return
+	subtypes: List[str] = re.sub(fr"[^A-Za-zàäèéöü{LorcanaSymbols.SEPARATOR} ]", "", subtypesText).split(LorcanaSymbols.SEPARATOR_STRING)
+	if "ltem" in subtypes:
+		subtypes[subtypes.index("ltem")] = "Item"
+	# 'Seven Dwarves' is a subtype, but it might get split up into two types. Turn it back into one subtype
+	sevenDwarvesCheckTypes = None
+	if GlobalConfig.language == Language.ENGLISH:
+		sevenDwarvesCheckTypes = ("Seven", "Dwarfs")
+	elif GlobalConfig.language == Language.FRENCH:
+		sevenDwarvesCheckTypes = ("Sept", "Nains")
+	elif GlobalConfig.language == Language.GERMAN:
+		sevenDwarvesCheckTypes = ("Sieben", "Zwerge")
+	elif GlobalConfig.language == Language.ITALIAN:
+		sevenDwarvesCheckTypes = ("Sette", "Nani")
+	if sevenDwarvesCheckTypes and sevenDwarvesCheckTypes[0] in subtypes and sevenDwarvesCheckTypes[1] in subtypes:
+		subtypes.remove(sevenDwarvesCheckTypes[1])
+		subtypes[subtypes.index(sevenDwarvesCheckTypes[0])] = " ".join(sevenDwarvesCheckTypes)
+	for subtypeIndex in range(len(subtypes) - 1, -1, -1):
+		subtype = subtypes[subtypeIndex]
+		if GlobalConfig.language in (Language.ENGLISH, Language.FRENCH) and subtype != "Floodborn" and re.match(r"^[EF][il][aeo][aeo]d[^b]?b?[^b]?[aeo](r[an][es+-]?|m)$", subtype):
+			_logger.debug(f"Correcting '{subtype}' to 'Floodborn'")
+			subtypes[subtypeIndex] = "Floodborn"
+		elif GlobalConfig.language == Language.ENGLISH and subtype != "Hero" and re.match(r"e?H[eo]r[aeos]", subtype):
+			subtypes[subtypeIndex] = "Hero"
+		elif re.match("I?Hl?usion", subtype):
+			subtypes[subtypeIndex] = "Illusion"
+		elif GlobalConfig.language == Language.ITALIAN and subtype == "lena":
+			subtypes[subtypeIndex] = "Iena"
+		elif subtype == "Hros":
+			subtypes[subtypeIndex] = "Héros"
+		elif subtype == "toryborn" or subtype == "Storyhorn":
+			subtypes[subtypeIndex] = "Storyborn"
+		# Remove short subtypes, probably erroneous
+		elif len(subtype) < (4 if GlobalConfig.language == Language.ENGLISH else 3) and subtype != "Re":  # 'Re' is Italian for 'King', so it's a valid subtype
+			_logger.debug(f"Removing subtype '{subtype}', too short")
+			subtypes.pop(subtypeIndex)
+		elif not re.search("[aeiouAEIOU]", subtype):
+			_logger.debug(f"Removing subtype '{subtype}', no vowels so it's probably invalid")
+			subtypes.pop(subtypeIndex)
+	# Non-character cards have their main type as their (first) subtype, remove those
+	if subtypes and (subtypes[0] == GlobalConfig.translation.Action or subtypes[0] == GlobalConfig.translation.Item or subtypes[0] == GlobalConfig.translation.Location):
+		subtypes.pop(0)
+	if subtypes:
+		outputCard["subtypes"] = subtypes

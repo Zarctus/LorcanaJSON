@@ -89,7 +89,7 @@ def correctText(cardText: str) -> str:
 		# Ink payment discounts
 		cardText = re.sub(r"(?<=\bpay\s)(\d)[0Q©]? .?to\b", f"\\1 {LorcanaSymbols.INK} to", cardText)
 		cardText = re.sub(rf"pay(s?) ?(\d)\.? ?[^{LorcanaSymbols.INK}.]{{1,2}}( |\.|$)", f"pay\\1 \\2 {LorcanaSymbols.INK}\\3", cardText, flags=re.MULTILINE)
-		cardText = re.sub(rf"pay(\s)(\d) [^{LorcanaSymbols.INK}] less", fr"pay\1\2 {LorcanaSymbols.INK} less", cardText)
+		cardText = re.sub(rf"pay(\s)(\d) ?[^{LorcanaSymbols.INK} ] less", fr"pay\1\2 {LorcanaSymbols.INK} less", cardText)
 		cardText = re.sub(r"(?<=\bpay\s)(\d+)O?(?=\sless\b)", f"\\1 {LorcanaSymbols.INK}", cardText)
 		# It gets a bit confused about exert and payment, correct that
 		cardText = re.sub(r"^\(20 ", f"{LorcanaSymbols.EXERT}, 2 {LorcanaSymbols.INK} ", cardText)
@@ -285,7 +285,7 @@ def correctPunctuation(textToCorrect: str) -> str:
 		correctedText = re.sub(r"\bIAM\b", "I AM", correctedText)
 		correctedText = re.sub(r"\bl'm\b", "I'm", correctedText)
 		# Correct fancy quotemarks when they're used in shortenings (f.i. "'em", "comin'", etc.)
-		correctedText = re.sub(r"(?<=\s)[‘’](?=(cause|em|til)([,.?!]|\s|$))", "'", correctedText, flags=re.IGNORECASE)
+		correctedText = re.sub(r"(?<=\s)[‘’](?=(cause|em|round|til)([,.?!]|\s|$))", "'", correctedText, flags=re.IGNORECASE)
 		correctedText = re.sub(r"(?<=\win)[‘’](?=[,.?!]|\s|$)", "'", correctedText, flags=re.IGNORECASE)
 		correctedText = re.sub(r"(?<=\sol)[‘’](?=\s|$)", "'", correctedText, flags=re.IGNORECASE)
 	elif GlobalConfig.language == Language.GERMAN:
