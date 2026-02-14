@@ -64,6 +64,8 @@ def correctText(cardText: str) -> str:
 	cardText = re.sub(fr"^[^\n]{{,15}}\n(?=(?:[A-Z]\w+[ -])?{GlobalConfig.translation.shift})", "", cardText)
 	# Cards can grant abilities, written in quotemarks. These can never start with a Strength symbol, that should be Exert
 	cardText = cardText.replace(f"“{LorcanaSymbols.STRENGTH}", f"“{LorcanaSymbols.EXERT}")
+	# Sometimes in ability costs, the comma between 'Exert' and an ink cost gets missed
+	cardText = re.sub(fr"(?<={LorcanaSymbols.EXERT}) (?=\d)", ", ", cardText)
 
 	if GlobalConfig.language == Language.ENGLISH:
 		cardText = re.sub("^‘", "“", cardText, flags=re.MULTILINE)
@@ -155,6 +157,8 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(fr"((?:\bce personnage|\bil) gagne )\+(\d) [^{LorcanaSymbols.LORE}{LorcanaSymbols.STRENGTH}{LorcanaSymbols.WILLPOWER}]?\.", fr"\1+\2 {LorcanaSymbols.STRENGTH}.", cardText)
 		# Fix second line of 'Challenger'/'Offensif' reminder text
 		cardText = re.sub(r"^\+(\d) ?[^.]{0,2}\.\)$", fr"+\1 {LorcanaSymbols.STRENGTH}.)", cardText, flags=re.MULTILINE)
+		# Sometimes it events a 'c' in 'dommage'
+		cardText = cardText.replace("dommacge", "dommage")
 		# Sometimes a number before 'dommage' gets read as something else, correct that
 		cardText = re.sub(r"\b[l|] dommage", "1 dommage", cardText)
 		# Misc common mistakes

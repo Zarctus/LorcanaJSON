@@ -202,6 +202,9 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 			if len(remainingTextLine) < 4:
 				_logger.info(f"Remaining text for card {CardUtil.createCardIdentifier(outputCard)} {remainingTextLine!r} is too short, discarding")
 				continue
+			if not re.search(r"\w{3,}", remainingTextLine):
+				_logger.info(f"Remaining text line {remainingTextLine!r} for card {CardUtil.createCardIdentifier(outputCard)} doesn't seem to contain any words, discarding")
+				continue
 			# Check if this is a keyword ability
 			if outputCard["type"] == GlobalConfig.translation.Item:
 				# Some items ("Peter Pan's Dagger", ID 351; "Sword in the Stone", ID 352) have an ability without an ability name label. Store these as abilities too
@@ -383,7 +386,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 					_logger.error(f"Ability at index {abilityIndexToCorrect} in card {CardUtil.createCardIdentifier(outputCard)} is being corrected to two types: '{forceAbilityTypeAtIndex[abilityIndexToCorrect]}' and '{abilityTypeCorrection}'")
 				forceAbilityTypeAtIndex[abilityIndexToCorrect] = abilityTypeCorrection
 		addNameToAbilityAtIndex: Optional[List[Union[int, str]]] = cardDataCorrections.pop("_addNameToAbilityAtIndex", None)
-		effectAtIndexIsAbility: Union[int, List[int, str]] = cardDataCorrections.pop("_effectAtIndexIsAbility", -1)
+		effectAtIndexIsAbility: Union[int, List] = cardDataCorrections.pop("_effectAtIndexIsAbility", -1)
 		effectAtIndexIsFlavorText: int = cardDataCorrections.pop("_effectAtIndexIsFlavorText", -1)
 		externalLinksCorrection: Optional[List[str]] = cardDataCorrections.pop("externalLinks", None)
 		fullTextCorrection: Optional[List[str]] = cardDataCorrections.pop("fullText", None)
@@ -448,7 +451,11 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 				_logger.error(f"Supplied name '{addNameToAbilityAtIndex[1]}' to add to ability at index {addNameToAbilityAtIndex[0]} of card {CardUtil.createCardIdentifier(outputCard)}, but ability already has name '{outputCard['abilities'][addNameToAbilityAtIndex[0]]['name']}'")
 			else:
 				_logger.info(f"Adding ability name '{addNameToAbilityAtIndex[1]}' to ability index {addNameToAbilityAtIndex[0]} for card {CardUtil.createCardIdentifier(outputCard)}")
-				outputCard["abilities"][addNameToAbilityAtIndex[0]]["name"] = addNameToAbilityAtIndex[1]
+				ability = outputCard["abilities"][addNameToAbilityAtIndex[0]]
+				ability["name"] = addNameToAbilityAtIndex[1]
+				if ability["effect"].startswith(addNameToAbilityAtIndex[1]):
+					_logger.info(f"Ability effect already started with ability name, removing, from card {CardUtil.createCardIdentifier(outputCard)}")
+					ability["effect"] = ability["effect"][len(addNameToAbilityAtIndex[1])+1:]
 
 		# Merge effects if requested
 		# Do this before potentially moving effects to abilities, so the merged effect moves instead of just the first part
@@ -463,15 +470,18 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 			else:
 				if "abilities" not in outputCard:
 					outputCard["abilities"] = []
-				abilityNameForEffectIsAbility = ""
-				if isinstance(effectAtIndexIsAbility, list):
-					effectAtIndexIsAbility, abilityNameForEffectIsAbility = effectAtIndexIsAbility
-				_logger.info(f"Moving effect index {effectAtIndexIsAbility} to abilities")
-				abilityEffectText = outputCard["effects"].pop(effectAtIndexIsAbility)
-				if abilityNameForEffectIsAbility and abilityEffectText.startswith(abilityNameForEffectIsAbility):
-					_logger.info(f"Removing duplicate label '{abilityNameForEffectIsAbility}' from start of ability effect")
-					abilityEffectText = abilityEffectText[len(abilityNameForEffectIsAbility) + 1:]
-				outputCard["abilities"].append({"name": abilityNameForEffectIsAbility, "effect": abilityEffectText})
+				existingAbilityCount = len(outputCard["abilities"])
+				if isinstance(effectAtIndexIsAbility, int):
+					effectAtIndexIsAbility = [effectAtIndexIsAbility]
+				while effectAtIndexIsAbility:
+					abilityNameForEffectIsAbility = effectAtIndexIsAbility.pop() if isinstance(effectAtIndexIsAbility[-1], str) else None
+					effectIndex = effectAtIndexIsAbility.pop()
+					_logger.info(f"Moving effect index {effectIndex} to abilities")
+					abilityEffectText = outputCard["effects"].pop(effectIndex)
+					if abilityNameForEffectIsAbility and abilityEffectText.startswith(abilityNameForEffectIsAbility):
+						_logger.info(f"Removing duplicate label '{abilityNameForEffectIsAbility}' from start of ability effect")
+						abilityEffectText = abilityEffectText[len(abilityNameForEffectIsAbility) + 1:]
+					outputCard["abilities"].insert(existingAbilityCount,{"name": abilityNameForEffectIsAbility, "effect": abilityEffectText})
 				if len(outputCard["effects"]) == 0:
 					del outputCard["effects"]
 		if effectAtIndexIsFlavorText != -1:
@@ -575,7 +585,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 						ability["type"] = "activated"
 					elif (ability["effect"].startswith("Au début de chacun") or re.match(r"Au\sdébut\sd[eu](\svotre)?\stour\b", ability["effect"]) or re.match(r"À\sla\sfin\sd", ability["effect"]) or
 						re.search(r"(^L|\bl)orsqu(e|'une?|'il)\b", ability["effect"]) or re.search(r"(^À c|^C|,\sc)haque\sfois", ability["effect"]) or
-						re.match("Si (?!vous avez|un personnage)", ability["effect"]) or re.search("gagnez .+ pour chaque", ability["effect"]) or
+						re.match("Si (?!vous avez|une carte|un personnage)", ability["effect"]) or re.search("gagnez .+ pour chaque", ability["effect"]) or
 						re.search(r"une carte est\splacée", ability["effect"])):
 						ability["type"] = "triggered"
 				elif GlobalConfig.language == Language.GERMAN:
@@ -788,11 +798,6 @@ def _parseNameFields(inputCard: Dict, outputCard: Dict, ocrResult: OcrResult):
 		# This name is inconsistent, sometimes it has a capital 'M', sometimes a lowercase 'm'
 		# Comparing with capitalization of other cards, this should be a lowercase 'm'
 		outputCard["name"] = outputCard["name"].replace("M", "m")
-	elif GlobalConfig.language == Language.ENGLISH and outputCard["name"] == "Heihei":
-		# They're inconsistent about the spelling of 'HeiHei': Up to Set 6 they wrote it 'HeiHei' with the second 'H' capitalized,
-		# but starting from Set 7, they started writing it 'Heihei', with the second 'h' lowercase
-		# Searching around on non-Lorcana sources, the spelling isn't too consistent either, with sometimes 'Heihei' and sometimes 'Hei Hei'
-		outputCard["name"] = "HeiHei"
 	elif outputCard["name"].isupper() and outputCard["name"] not in ("B.E.N.", "I2I"):
 		# Some names have capitals in the middle, correct those
 		if outputCard["type"] == GlobalConfig.translation.Character:
@@ -807,6 +812,18 @@ def _parseNameFields(inputCard: Dict, outputCard: Dict, ocrResult: OcrResult):
 			outputCard["name"] = outputCard["name"][0] + outputCard["name"][1:].lower()
 		else:
 			outputCard["name"] = _toTitleCase(outputCard["name"])
+	elif GlobalConfig.language == Language.ENGLISH:
+		if outputCard["name"] == "Heihei":
+			# They're inconsistent about the spelling of 'HeiHei': Up to Set 6 they wrote it 'HeiHei' with the second 'H' capitalized,
+			# but starting from Set 7, they started writing it 'Heihei', with the second 'h' lowercase
+			# Searching around on non-Lorcana sources, the spelling isn't too consistent either, with sometimes 'Heihei' and sometimes 'Hei Hei'
+			outputCard["name"] = "HeiHei"
+		elif outputCard["name"] == "Vanellope Von Schweetz":
+			# They sometimes use 'Von' and sometimes 'von', it should be lowercase
+			outputCard["name"] = "Vanellope von Schweetz"
+		elif outputCard["name"] == "Wreck-it Ralph":
+			# They sometimes use a lower-case 'i', while the correct spelling is a capital 'I'
+			outputCard["name"] = "Wreck-It Ralph"
 	outputCard["fullName"] = outputCard["name"]
 	outputCard["simpleName"] = outputCard["fullName"]
 	if "subtitle" in inputCard or ocrResult.version:
@@ -868,17 +885,19 @@ def _parseSubtypes(subtypesText: Optional[str], outputCard: Dict):
 		subtypes[subtypes.index(sevenDwarvesCheckTypes[0])] = " ".join(sevenDwarvesCheckTypes)
 	for subtypeIndex in range(len(subtypes) - 1, -1, -1):
 		subtype = subtypes[subtypeIndex]
-		if GlobalConfig.language in (Language.ENGLISH, Language.FRENCH) and subtype != "Floodborn" and re.match(r"^[EF][il][aeo][aeo]d[^b]?b?[^b]?[aeo](r[an][es+-]?|m)$", subtype):
+		if subtype == "Fantme":
+			subtypes[subtypeIndex] = "Fantôme"
+		elif GlobalConfig.language in (Language.ENGLISH, Language.FRENCH) and subtype != "Floodborn" and re.match(r"^[EF][il][aeo][aeo]d[^b]?b?[^b]?[aeo](r[an][es+-]?|m)$", subtype):
 			_logger.debug(f"Correcting '{subtype}' to 'Floodborn'")
 			subtypes[subtypeIndex] = "Floodborn"
 		elif GlobalConfig.language == Language.ENGLISH and subtype != "Hero" and re.match(r"e?H[eo]r[aeos]", subtype):
 			subtypes[subtypeIndex] = "Hero"
+		elif subtype == "Hros":
+			subtypes[subtypeIndex] = "Héros"
 		elif re.match("I?Hl?usion", subtype):
 			subtypes[subtypeIndex] = "Illusion"
 		elif GlobalConfig.language == Language.ITALIAN and subtype == "lena":
 			subtypes[subtypeIndex] = "Iena"
-		elif subtype == "Hros":
-			subtypes[subtypeIndex] = "Héros"
 		elif subtype == "toryborn" or subtype == "Storyhorn":
 			subtypes[subtypeIndex] = "Storyborn"
 		# Remove short subtypes, probably erroneous

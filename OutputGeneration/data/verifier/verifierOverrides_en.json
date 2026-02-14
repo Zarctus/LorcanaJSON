@@ -597,22 +597,22 @@
       ""
     ]
   },
+  "2566": {
+    "rules_text": [
+      "’ ",
+      "' "
+    ]
+  },
   "2632": {
     "rules_text": [
       ",1",
       ", 1"
     ]
   },
-  "2692": {
+  "2714": {
     "author": [
-      "quez$",
-      "quez López"
-    ]
-  },
-  "2703": {
-    "author": [
-      "quez$",
-      "quez López"
+      "^Federico Maria Cugliari$",
+      "Lissette Carrera"
     ]
   }
 }
