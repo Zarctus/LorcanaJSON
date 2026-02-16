@@ -416,7 +416,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 					firstAbilityTextPart, secondAbilityTextPart = ability[abilityTextFieldName].rsplit("\n\n", 1)
 					ability[abilityTextFieldName] = firstAbilityTextPart
 					outputCard["abilities"].insert(abilityIndex + 1, {"effect": secondAbilityTextPart})
-		if "effects" in cardDataCorrections and "effects" in outputCard:
+		if "effects" in outputCard and ("effects" in cardDataCorrections or removeEffectsAtIndexes):
 			for effectIndex in range(len(outputCard["effects"]) - 1, -1, -1):
 				while "\n\n" in outputCard["effects"][effectIndex]:
 					_logger.info(f"Splitting effect at index {effectIndex} in two because it has a double newline, in card {CardUtil.createCardIdentifier(outputCard)}")
@@ -592,7 +592,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 					if re.match(r"Einmal\s(pro|während\sdeines)\sZug(es)?,?\sdarfst\sdu", ability["effect"]):
 						ability["type"] = "activated"
 					elif (re.match(r"Wenn(\sdu)?\sdiese", ability["effect"]) or re.match(r"Wenn\seiner\sdeiner\sCharaktere", ability["effect"]) or re.search(r"(^J|\bj)edes\sMal\b", ability["effect"]) or
-						  re.match(r"Einmal\swährend\sdeines\sZuges\b", ability["effect"]) or ability["effect"].startswith("Einmal pro Zug, wenn") or
+						  re.match(r"(Ein|Zwei)mal\swährend\sdeines\sZuges\b", ability["effect"]) or ability["effect"].startswith("Einmal pro Zug, wenn") or
 						  re.search(r"(^Z|\bz)u\sBeginn\s(deines|von\s\w+)\sZug", ability["effect"]) or re.match(r"Am\sEnde\s(deines|des)\sZuges", ability["effect"]) or
 						  re.match(r"Falls\sdu\sGestaltwandel\sbenutzt\shas", ability["effect"]) or "wenn du eine Karte ziehst" in ability["effect"] or
 						  re.search(r"\bwährend\ser\seinen?(\s|\w)+herausfordert\b", ability["effect"]) or re.search(r"wenn\sdieser\sCharakter\szu\seinem\sOrt\sbewegt", ability["effect"]) or

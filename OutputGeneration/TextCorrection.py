@@ -178,8 +178,10 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(r"herausfordert, erhält er \+(\d+) \S+\.\)", f"herausfordert, erhält er +\\1 {LorcanaSymbols.STRENGTH}.)", cardText)
 		# 'Support' reminder text
 		cardText = re.sub(r"(seine|ihre)(\s)(?:\S{1,2} )?in diesem Zug zur(\s)\S{1,2}", f"\\1\\2{LorcanaSymbols.STRENGTH} in diesem Zug zur\\3{LorcanaSymbols.STRENGTH}", cardText)
+		# It sometimes messes up if the second Strength symbol in the Support reminder text is completely missing, fix that
+		cardText = cardText.replace(f"{LorcanaSymbols.STRENGTH}nes", f"{LorcanaSymbols.STRENGTH} eines")
 		# Correct Shift/Gestaltwandel and Boost/Stärken with an ink symbol
-		cardText = re.sub(fr"^(Gestaltwandel|Stärken) ?(\d) ?[0O{LorcanaSymbols.STRENGTH}]", fr"\1 \2 {LorcanaSymbols.INK}", cardText)
+		cardText = re.sub(fr"^(Gestaltwandel|Stärken) ?(\d) ?[0O©{LorcanaSymbols.STRENGTH}]", fr"\1 \2 {LorcanaSymbols.INK}", cardText)
 		# Song reminder text
 		cardText = re.sub(fr"(?<=oder mehr kostet, )[^{LorcanaSymbols.EXERT}](?=, damit)", LorcanaSymbols.EXERT, cardText)
 		# The Lore symbol gets read as a '+', correct that
@@ -310,7 +312,7 @@ def correctPunctuation(textToCorrect: str) -> str:
 		# It has some trouble recognising exclamation marks
 		correctedText = re.sub(r" ?\.””", "!”", correctedText)
 		# Quotemarks used as letter replacements should be simple quotemarks
-		correctedText = re.sub(r"(?<=\spo)’(?=\.|\s)", "'", correctedText)
+		correctedText = re.sub(r"(?<=\s(de|po))’(?=\.|\s)", "'", correctedText)
 
 	correctedText = correctedText.rstrip(" -_")
 	correctedText = correctedText.replace("““", "“")
