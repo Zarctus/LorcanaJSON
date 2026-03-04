@@ -20,6 +20,7 @@ _CARD_MARKET_LANGUAGE_TO_CODE = {
 }
 _CARD_MARKET_CARD_GROUP_TO_NAME = {
 	"C1": "Disney-Lorcana-Challenge-Promos",
+	"C2": "Lorcana-Challenge-Promos-Year-3",
 	"D23": "D23-Expo-2024-Collectors-Set",
 	"P1": "Promos",
 	"P2": "Promos-Year-2",
@@ -60,6 +61,12 @@ _CORRECTIONS = {
 		"10": {
 			"A Whole New World": ("Promos", "10/C1")
 		},
+		"11/P":{
+			"Mickey Mouse - Musketeer": ("Promos", "11/P1")
+		},
+		"12/P1": {
+			"The Queen - Mirror Seeker": ("Promos", "12/P3")
+		},
 		"24/P2": {
 			"Hiro Hamada - Armor Designer": ("Promos", "24A/P2")
 		}
@@ -68,23 +75,23 @@ _CORRECTIONS = {
 		"11": {
 			"The Hexwell Crown": ("Q1", "29")
 		},
-		"223": {
+		"223/204": {
 			"Piglet - Pooh Pirate Captain": ("3", "223/204"),
 			"Yen Sid - Powerful Sorcerer": ("4", "223/204")
 		},
-		"224": {
+		"224/204": {
 			"Mulan - Elite Archer": ("4", "224/204")
 		},
-		"225": {
+		"225/204": {
 			"Mickey Mouse - Playful Sorcerer": ("4", "225/204")
 		}
 	},
 	"Q2": {
-		"223": {
+		"223/204": {
 			"Bolt - Superdog": ("7", "223/204"),
 			"Goofy - Groundbreaking Chef": ("8", "223/204")
 		},
-		"224": {
+		"224/204": {
 			"Elsa - Ice Maker": ("7", "224/204"),
 			"Pinocchio - Strings Attached": ("8", "224/204")
 		}
@@ -179,7 +186,7 @@ class ExternalLinksHandler:
 			expansionName = expansion["name"]
 			if expansionName in setNameToCode:
 				setCodeToUse = setNameToCode[expansionName]
-			elif expansionName == "Promos" or expansionName == "Lorcana Challenge Promos":
+			elif expansionName in ("Lorcana Challenge Promos", "Promos") or expansionName.startswith("Promos Year "):
 				setCodeToUse = "Promos"
 			elif expansionName == "Errata Cards":
 				continue
@@ -212,6 +219,14 @@ class ExternalLinksHandler:
 				if len(cardNumber) == 4 and cardNumber.endswith("a"):
 					cardNumber = cardNumber[:-1]
 				cardSetCodeToUse = setCodeToUse
+				if card.get("version", None) and "/" in card["version"] and "/" not in cardNumber:
+					# Some promo cards have the full card number in the version, as "[promo source] | [number]/[promo group]" (f.e. "Pre-Release Promo | 28/P3")
+					# If the card number doesn't include that promo group yet, add it
+					promoGroupingMatch = _IDENTIFIER_REGEX.search(card["version"])
+					if promoGroupingMatch:
+						cardNumber += "/" + promoGroupingMatch.group("cardGroup")
+					else:
+						_LOGGER.error(f"Unable to find promo group in version '{card['version']}'")
 				if setCodeToUse in _CORRECTIONS and cardNumber in _CORRECTIONS[setCodeToUse] and card["name"] in _CORRECTIONS[setCodeToUse][cardNumber]:
 					_LOGGER.info(f"Correcting card '{card['name']}', changing setcode '{setCodeToUse}' and cardnumber '{cardNumber}' to {_CORRECTIONS[setCodeToUse][cardNumber][card['name']]}")
 					cardSetCodeToUse, cardNumber = _CORRECTIONS[setCodeToUse][cardNumber][card["name"]]
@@ -220,7 +235,7 @@ class ExternalLinksHandler:
 					cardNumber += "/P1"
 				if cardNumber in cardsBySet[cardSetCodeToUse]:
 					# Card with this number already exists
-					_LOGGER.error(f"While adding card '{card['name']}' from set '{expansionName}', already found card with number {cardNumber} in setcode {cardSetCodeToUse}")
+					_LOGGER.error(f"While adding card '{card['name']}' (Version '{card.get('version', 'unknown')}') from set '{expansionName}', already found card with number {cardNumber} in setcode {cardSetCodeToUse}")
 					continue
 				# Only add ID fields if they exist
 				cardExternalLinks = {}
@@ -233,16 +248,16 @@ class ExternalLinksHandler:
 					cardmarketCategoryName = "Promos-Year-2"
 				elif cardSetCodeToUse == "Q1":
 					cardmarketCategoryName = "Ursulas-Deck"
-				elif expansionName == "Lorcana Challenge Promos":
-					cardmarketCategoryName = "Disney-Lorcana-Challenge-Promos"
 				elif cardSetCodeToUse != setCodeToUse:
 					cardmarketCategoryName = _convertStringToUrlValue(setCodeToName[cardSetCodeToUse])
-				elif re.search("/[A-Z]", card["fixed_properties"]["collector_number"]):
-					cardCategory = card["fixed_properties"]["collector_number"].split("/", 1)[1].strip()
+				elif re.search("/[A-Z]", cardNumber):
+					cardCategory = cardNumber.split("/", 1)[1].strip()
 					if cardCategory in _CARD_MARKET_CARD_GROUP_TO_NAME:
 						cardmarketCategoryName = _CARD_MARKET_CARD_GROUP_TO_NAME[cardCategory]
 					else:
 						_LOGGER.error(f"Unknown CardMarket Group {cardCategory!r} for card {cardNumber} {card['name']!r}")
+				elif expansionName == "Promos Year 1":
+					cardmarketCategoryName = "Promos"
 				else:
 					cardmarketCategoryName = _convertStringToUrlValue(expansionName)
 				if cardmarketCategoryName:
@@ -260,6 +275,7 @@ class ExternalLinksHandler:
 
 		# Downloading and parsing data is done, list differences with the previous file (if it exists)
 		wasChangeFound = False
+		newCardCount = 0
 		if os.path.isfile(_EXTERNAL_LINKS_FILE_PATH):
 			with open(_EXTERNAL_LINKS_FILE_PATH, "r", encoding="utf-8") as oldExternalLinksFile:
 				oldCardsBySet = json.load(oldExternalLinksFile)
@@ -272,6 +288,7 @@ class ExternalLinksHandler:
 					for cardId, newCardData in newSetData.items():
 						if cardId not in oldSetData:
 							wasChangeFound = True
+							newCardCount += 1
 							_LOGGER.info(f"Card {cardId} of set {setCode} exists in the new external-links data but not in the old")
 						else:
 							oldCardData = oldSetData[cardId]
@@ -285,10 +302,13 @@ class ExternalLinksHandler:
 			if not wasChangeFound:
 				_LOGGER.info("No changes found between old and new externalLinks data")
 		else:
+			wasChangeFound = True
 			_LOGGER.info("No externalLinks file existed yet, so no list of changes can be made")
 
 		# Done, save the new data, overwriting the old, if needed
 		if wasChangeFound:
+			if newCardCount:
+				_LOGGER.info(f"Found new data for {newCardCount:,} cards")
 			with open(_EXTERNAL_LINKS_FILE_PATH, "w", encoding="utf-8") as externalLinksFile:
 				json.dump(cardsBySet, externalLinksFile, indent=2)
 			#TODO Check here if all cards have externalLinks and warn about cards that don't
