@@ -150,16 +150,11 @@ class ExternalLinksHandler:
 
 		# Get data from CardTrader, it includes Cardmarket and TCGplayer card IDs
 		headers = {"Authorization": "Bearer " + cardTraderToken}
-		expansionsRequest = requests.get("https://api.cardtrader.com/api/v2/expansions", headers=headers, timeout=10)
 		cardsBySet: Dict[str, Dict[str, Dict[str, Union[int, str]]]] = {"Promos": {}}  # Top level is the set code, it contains for each card number (as string, because it can have f.i. 'P1') in that set a dictionary with the card IDs and URLs for various stores
 		for setName, setCode in setNameToCode.items():
 			cardsBySet[setCode] = {}
 
-		# Obtenir la liste des expansions
-		expansionsRequest = safe_request("https://api.cardtrader.com/api/v2/expansions")
-		if expansionsRequest is None:
-			_LOGGER.error("Impossible de récupérer la liste des expansions. Abandon.")
-			return
+		expansionsRequest = requests.get("https://api.cardtrader.com/api/v2/expansions", headers=headers, timeout=10)
 		if expansionsRequest.status_code != 200:
 			_LOGGER.error(f"Expansions retrieval request failed, status code {expansionsRequest.status_code}")
 			return
@@ -180,13 +175,7 @@ class ExternalLinksHandler:
 				continue
 
 			# Get the cards for this expansion
-			_LOGGER.info(f"Récupération des cartes pour l'expansion '{expansionName}'...")
-			expansionCardsRequest = safe_request("https://api.cardtrader.com/api/v2/blueprints/export", params={"expansion_id": expansion["id"]})
-
-			if expansionCardsRequest is None:
-				_LOGGER.warning(f"Impossible de récupérer les cartes pour l'expansion '{expansionName}'. Passage à l'expansion suivante.")
-				continue
-
+			expansionCardsRequest = requests.get("https://api.cardtrader.com/api/v2/blueprints/export", headers=headers, params={"expansion_id": expansion["id"]}, timeout=10)
 			if expansionCardsRequest.status_code != 200:
 				_LOGGER.warning(f"Échec de récupération des cartes pour l'expansion '{expansionName}', code {expansionCardsRequest.status_code}. Passage à l'expansion suivante.")
 				continue
