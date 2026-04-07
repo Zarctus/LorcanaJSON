@@ -1,7 +1,7 @@
 import json, logging, os, re, string
-from typing import Dict, Optional
+from typing import Dict, List, Optional, Union
 
-import requests
+import natsort, requests
 
 import GlobalConfig
 from util import Language
@@ -141,32 +141,17 @@ class ExternalLinksHandler:
 		for setCode, setData in setsData.items():
 			setName = setData["names"]["en"]
 			setNameToCode[setName] = setCode
-			setCodeToName[setCode] = setName
 			# CardTrader doesn't always keep the 'The' at the start, so store the name without that too
 			if setName.startswith("The "):
-				setNameToCode[setName.split(" ", 1)[1]] = setCode
+				setName = setName.split(" ", 1)[1]
+				setNameToCode[setName] = setCode
+			# Do this after 'The ' correction since we need the setname without it
+			setCodeToName[setCode] = setName
 
 		# Get data from CardTrader, it includes Cardmarket and TCGplayer card IDs
 		headers = {"Authorization": "Bearer " + cardTraderToken}
-
-		# Fonction pour faire des requêtes avec gestion des erreurs
-		def safe_request(url, params=None, max_retries=2):
-			for attempt in range(max_retries):
-				try:
-					response = requests.get(url, headers=headers, params=params, timeout=30)
-					return response
-				except requests.exceptions.Timeout:
-					if attempt < max_retries - 1:
-						_LOGGER.warning(f"Timeout lors de la requête à {url}. Tentative {attempt+1}/{max_retries}. Réessai...")
-					else:
-						_LOGGER.error(f"Échec définitif après {max_retries} tentatives pour {url}")
-						return None
-				except Exception as e:
-					_LOGGER.error(f"Erreur lors de la requête à {url}: {str(e)}")
-					return None
-			return None
-
-		cardsBySet: Dict[str, Dict[str, Dict[str, int]]] = {"Promos": {}}  # Top level is the set code, it contains for each card number (as string, because it can have f.i. 'P1') in that set a dictionary with the card IDs for various stores
+		expansionsRequest = requests.get("https://api.cardtrader.com/api/v2/expansions", headers=headers, timeout=10)
+		cardsBySet: Dict[str, Dict[str, Dict[str, Union[int, str]]]] = {"Promos": {}}  # Top level is the set code, it contains for each card number (as string, because it can have f.i. 'P1') in that set a dictionary with the card IDs and URLs for various stores
 		for setName, setCode in setNameToCode.items():
 			cardsBySet[setCode] = {}
 
@@ -262,7 +247,7 @@ class ExternalLinksHandler:
 					cardmarketCategoryName = _convertStringToUrlValue(expansionName)
 				if cardmarketCategoryName:
 					cardmarketCardName = _convertStringToUrlValue(card["name"], cardSetCodeToUse in ("5", "7"))  # For some reason, they remove mid-word dashes (like in 'mid-word') only in cardnames from some sets, correct for that
-					cardExternalLinks["cardmarketUrl"] = f"https://www.cardmarket.com/{{languageCode}}/Lorcana/Products/Singles/{cardmarketCategoryName}/{cardmarketCardName}{{cardmarketVersionSuffix}}?language={{cardmarketLanguageCode}}"
+					cardExternalLinks["cardmarketUrl"] = f"https://www.cardmarket.com/{{languageCode}}/Lorcana/Products/Singles/{cardmarketCategoryName}/{cardmarketCardName}[[versionSuffix]]?language={{cardmarketLanguageCode}}"
 
 				if card["tcg_player_id"]:
 					cardExternalLinks["tcgPlayerId"] = card["tcg_player_id"]
@@ -272,6 +257,31 @@ class ExternalLinksHandler:
 				cardExternalLinks = {key: cardExternalLinks[key] for key in sorted(cardExternalLinks)}
 				# and store 'em
 				cardsBySet[cardSetCodeToUse][cardNumber] = cardExternalLinks
+
+		# Find cards with the same cardmarket URL, so we can fill in the version suffix
+		for setcode in cardsBySet:
+			# Sort cards by number so we know which one needs the '-V1' suffix and which the '-V2'
+			cardsBySet[setcode] = {cardnumber: cardsBySet[setcode][cardnumber] for cardnumber in natsort.natsorted(cardsBySet[setcode])}
+			cardmarketUrlToCardNumbers: Dict[str, List[str]] = {}
+			# First build a list of all the card numbers that have the same cardmarket url, so we know which suffix they need
+			for cardnumber, carddata in cardsBySet[setcode].items():
+				cardmarketUrl: Optional[str] = carddata.get("cardmarketUrl", None)
+				if cardmarketUrl:
+					cardmarketUrl = cardmarketUrl.lower()  # Prevent case differences in names from causing problems ("Look at this Family" versus "Look at This Family")
+					if cardmarketUrl not in cardmarketUrlToCardNumbers:
+						cardmarketUrlToCardNumbers[cardmarketUrl] = []
+					cardmarketUrlToCardNumbers[cardmarketUrl].append(cardnumber)
+			# Now set the suffixes
+			for cardmarketUrl, cardNumbers in cardmarketUrlToCardNumbers.items():
+				if len(cardNumbers) == 1:
+					# No duplicate URLs, so this card is unique and doesn't need a suffix
+					carddata = cardsBySet[setcode][cardNumbers[0]]
+					carddata["cardmarketUrl"] = carddata["cardmarketUrl"].replace("[[versionSuffix]]", "")
+				else:
+					# Multiple cards with the same URL, fill in each suffix
+					for index, cardNumber in enumerate(cardNumbers):
+						carddata = cardsBySet[setcode][cardNumber]
+						carddata["cardmarketUrl"] = carddata["cardmarketUrl"].replace("[[versionSuffix]]", f"-V{index+1}")
 
 		# Downloading and parsing data is done, list differences with the previous file (if it exists)
 		wasChangeFound = False
@@ -313,7 +323,7 @@ class ExternalLinksHandler:
 				json.dump(cardsBySet, externalLinksFile, indent=2)
 			#TODO Check here if all cards have externalLinks and warn about cards that don't
 
-	def getExternalLinksForCard(self, parsedIdentifier: Identifier, hasEnchanted: bool) -> Optional[Dict[str, str]]:
+	def getExternalLinksForCard(self, parsedIdentifier: Identifier) -> Optional[Dict[str, str]]:
 		if parsedIdentifier.setCode not in self._externalLinks:
 			_LOGGER.error(f"Setcode '{parsedIdentifier.setCode}' does not exist in the External IDs data")
 		numberGroupingString = f"{parsedIdentifier.number}/{parsedIdentifier.grouping}"
@@ -321,7 +331,7 @@ class ExternalLinksHandler:
 		if parsedIdentifier.variant:
 			numberGroupingString = numberGroupingString.replace("/", parsedIdentifier.variant + "/")
 			numberString += parsedIdentifier.variant
-		cardExternalLinks = None
+		cardExternalLinks: Optional[Dict] = None
 		if parsedIdentifier.isPromo():
 			if numberGroupingString in self._externalLinks["Promos"]:
 				cardExternalLinks = self._externalLinks["Promos"][numberGroupingString]
@@ -335,42 +345,10 @@ class ExternalLinksHandler:
 		if not cardExternalLinks:
 			_LOGGER.warning(f"Unable to find external ID entry for full identifier '{parsedIdentifier}'")
 			return {}
-
+		# In rare cases multiple cards have the same number grouping ("Moana/Viana - Adventurer on Land and Sea", ID 1433 & 1663); make a copy of the data so changes in one card's data don't affect the other
+		cardExternalLinks = cardExternalLinks.copy()
 		# Some parts need extra filling in
 		# Cardmarket lists Enchanted cards with '-V2' at the end, and the non-Enchanted version with '-V1'. Promo versions are either '-V1' or '-V2'
 		if "cardmarketUrl" in cardExternalLinks:
-			cardmarketVersionSuffix = ""
-			if hasEnchanted:
-				cardmarketVersionSuffix = "-V1"
-			elif parsedIdentifier.number > 204:
-				cardmarketVersionSuffix = "-V2"
-			elif parsedIdentifier.variant:
-				variantVersion = string.ascii_lowercase.index(parsedIdentifier.variant.lower()) + 1
-				cardmarketVersionSuffix = f"-V{variantVersion}"
-			else:
-				# If we don't already set a suffix but there exists a corresponding V2 entry
-				# for this set in the external links data, assume the base should use '-V1'.
-				# Compare the stored cardmarketUrl templates (without the placeholder) to find a matching V2 key (>204).
-				template = cardExternalLinks.get("cardmarketUrl")
-				if template and parsedIdentifier.setCode in self._externalLinks:
-					template_base = template.replace("{cardmarketVersionSuffix}", "")
-					for otherKey, otherData in self._externalLinks[parsedIdentifier.setCode].items():
-						if otherData is cardExternalLinks:
-							continue
-						otherTemplate = otherData.get("cardmarketUrl")
-						if not otherTemplate:
-							continue
-						other_base = otherTemplate.replace("{cardmarketVersionSuffix}", "")
-						if other_base != template_base:
-							continue
-						# try to parse the numeric part of the key (before any '/')
-						try:
-							otherNum = int(str(otherKey).split("/", 1)[0])
-						except Exception:
-							continue
-						# If we found a V2-like entry (>204) while this card is base (<=204 or unspecified), force -V1
-						if otherNum > 204 and (not parsedIdentifier.number or parsedIdentifier.number <= 204):
-							cardmarketVersionSuffix = "-V1"
-							break
-			cardExternalLinks["cardmarketUrl"] = cardExternalLinks["cardmarketUrl"].format(languageCode=GlobalConfig.language.code, cardmarketLanguageCode=self._cardmarketLanguageCode, cardmarketVersionSuffix=cardmarketVersionSuffix)
+			cardExternalLinks["cardmarketUrl"] = cardExternalLinks["cardmarketUrl"].format(languageCode=GlobalConfig.language.code, cardmarketLanguageCode=self._cardmarketLanguageCode)
 		return cardExternalLinks
