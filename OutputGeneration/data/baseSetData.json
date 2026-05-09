@@ -265,19 +265,19 @@
     },
     "prereleaseDate": "2026-05-08",
     "releaseDate": "2026-05-15",
-    "hasAllCards": false,
+    "hasAllCards": true,
     "type": "expansion",
     "number": 12,
     "allowedInFormats": {
       "Core": {
-        "allowed": false,
+        "allowed": true,
         "rotationGroup": 3
       },
       "Infinity": {
-        "allowed": false
+        "allowed": true
       }
     },
-    "allowedInTournamentsFromDate": null
+    "allowedInTournamentsFromDate": "2026-05-08"
   },
   "13": {
     "names": {
@@ -286,11 +286,34 @@
       "fr": "Invasion Epineuse",
       "it": "Viticcio All'Attacco"
     },
+    "prereleaseDate": "2026-07-17",
+    "releaseDate": "2026-07-24",
+    "hasAllCards": false,
+    "type": "expansion",
+    "number": 13,
+    "allowedInFormats": {
+      "Core": {
+        "allowed": false,
+        "rotationGroup": 4
+      },
+      "Infinity": {
+        "allowed": false
+      }
+    },
+    "allowedInTournamentsFromDate": null
+  },
+  "14": {
+    "names": {
+      "de": "Die Stadt Hyperia",
+      "en": "Hyperia City",
+      "fr": "Hyperia City",
+      "it": "Città die Hyperia"
+    },
     "prereleaseDate": null,
     "releaseDate": null,
     "hasAllCards": false,
     "type": "expansion",
-    "number": 13,
+    "number": 14,
     "allowedInFormats": {
       "Core": {
         "allowed": false,

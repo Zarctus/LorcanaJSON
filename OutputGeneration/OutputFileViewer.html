@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>Output Data Verification Viewer</title>
@@ -23,14 +23,14 @@
 	<a href="#" onclick="goToPreviousSet(); return false;">Previous Set</a>
 	<a href="#" onclick="changeDisplayedIndex(-1); return false;">Previous</a>
 	<form id="indexForm" name="indexForm">
-		<span>Index: </span>
+		<label for="currentIndex">Index: </label>
 		<input id="currentIndex" type="number" placeholder="0" min="0" style="max-width: 5em;" />
 		<span> / </span>
 		<span id="maxIndex">0</span>
 	</form>
 	<a href="#" onclick="changeToRandomIndex(); return false;">Random</a>
 	<form id="cardIdForm" name="cardIdForm">
-		<span>ID: </span>
+		<label for="cardId">ID: </label>
 		<input id="cardId" type="number" placeholder="1" min="1" style="max-width: 5em;" />
 		<span> / </span>
 		<span id="maxId">0</span>
@@ -51,7 +51,7 @@
 	</span>
 </div>
 <br />
-<img id="img" src="" style="max-height: 900px" />
+<img id="img" src="" style="max-height: 800px" />
 <hr>
 <pre id="text"></pre>
 <hr>
@@ -59,7 +59,9 @@
 <hr>
 Cost: <span id="cost-value"></span> | Inkwell: <span id="inkwell-value"></span> | Movecost: <span id="moveCost-value"></span> | Strength: <span id="strength-value"></span> | Willpower: <span id="willpower-value"></span> | Lore: <span id="lore-value"></span> ||
 Abilities: <span id="abilities-count"></span> | Effects: <span id="effects-count"></span> ||
-Subtypes: <span id="subtypes"></span>
+Subtypes (<span id="subtypesCount">0</span>): <span id="subtypes"></span>
+<br>
+Artists (<span id="artistCount">0</span>): <span id="artist"></span> || Rarity: <span id="rarity"></span>
 <hr>
 <pre id="cardJson" style="overflow-x: scroll;"></pre>
 <hr>
@@ -115,7 +117,11 @@ function setDisplayedIndex(newIndex, showErrorMessage=true) {
 	document.getElementById("cardId").value = currentCardData["id"];
 	document.getElementById("cardImageLink").href = currentCardData["images"]["full"];
 	document.getElementById("story").textContent = currentCardData["story"] ? currentCardData["story"] : "???";
+	document.getElementById("subtypesCount").textContent = currentCardData["subtypes"] ? currentCardData["subtypes"].length : "0";
 	document.getElementById("subtypes").textContent = currentCardData["subtypesText"] ? currentCardData["subtypesText"] : "-";
+	document.getElementById("artistCount").textContent = currentCardData["artists"].length;
+	document.getElementById("artist").textContent = currentCardData["artistsText"];
+	document.getElementById("rarity").textContent = currentCardData["rarity"];
 	for (const fieldname of ["cost", "inkwell", "moveCost", "strength", "willpower", "lore"]) {
 		document.getElementById(fieldname + "-value").textContent = currentCardData[fieldname] === undefined ? "-" : currentCardData[fieldname];
 	}
@@ -123,9 +129,6 @@ function setDisplayedIndex(newIndex, showErrorMessage=true) {
 		document.getElementById(fieldname + "-count").textContent = currentCardData[fieldname] === undefined ? "-" : currentCardData[fieldname].length;
 	}
 	// Update the external links
-	const cardmarketLink = document.getElementById("cardmarketLink");
-	const cardTraderLink = document.getElementById("cardTraderLink");
-	const tcgPlayerLink = document.getElementById("tcgPlayerLink");
 	if (currentCardData.hasOwnProperty("externalLinks") && currentCardData["externalLinks"]) {
 		updateExternalLink("cardmarketLink", currentCardData["externalLinks"], "cardmarketUrl");
 		updateExternalLink("cardTraderLink", currentCardData["externalLinks"], "cardTraderUrl");

@@ -82,8 +82,8 @@
   "setSpecificSources": {
     "booster display": {
       "idBySet": {
-        "9": 2180,
-        "10": 2442
+        "9": [2180],
+        "10": [2442]
       },
       "de": "Booster Display",
       "en": "booster display",
@@ -92,17 +92,26 @@
     },
     "bring a friend": {
       "idBySet": {
-        "10": 2443
+        "10": [2443]
       },
       "de": "Bring a Friend",
       "en": "Bring a Friend",
       "fr": "Amenez un ami",
       "it": "Porta un Amico"
     },
+    "prerelease pack": {
+      "idBySet": {
+        "12": [2958, 2959, 2960, 2961, 2962, 2963]
+      },
+      "de": "Prerelease Box",
+      "en": "Prerelease Pack",
+      "fr": "pack d'Avant-Première",
+      "it": "pacchetto di prerelease"
+    },
     "quest victory card": {
       "idBySet": {
-        "Q1": 1179,
-        "Q2": 1935
+        "Q1": [1179],
+        "Q2": [1935]
       },
       "de": "Siegeskarte",
       "en": "victory card",

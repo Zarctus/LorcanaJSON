@@ -74,6 +74,7 @@ def correctText(cardText: str) -> str:
 		# Fix some common typos
 		cardText = cardText.replace("-|", "-1").replace("|", "I")
 		cardText = re.sub(r"“[LT\[]([ '’])", r"“I\1", cardText)
+		cardText = re.sub(r"^\[", "I ", cardText)
 		cardText = cardText.replace("—l", "—I")
 		cardText = re.sub(r"(?<=\w)!(?=,? ?[a-z])", "l", cardText)  # Replace exclamation mark followed by a lowercase letter by an 'l'
 		cardText = re.sub(r"^(“)?! ", r"\1I ", cardText)
@@ -87,6 +88,7 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(r"\bopponents’(\s|$)", r"opponents'\1", cardText, flags=re.MULTILINE)
 		cardText = re.sub(r"\bIllumineers’(\s|$)", r"Illumineers'\1", cardText, flags=re.MULTILINE)
 		cardText = re.sub(r"\bcharacters’(\s|$)", r"characters'\1", cardText, flags=re.MULTILINE)
+		cardText = re.sub(r"\bo’(\s|$)", r"o'\1", cardText, flags=re.MULTILINE)
 		## Correct common phrases with symbols ##
 		# Ink payment discounts
 		cardText = re.sub(r"(?<=\bpay\s)(\d)[0Q©]? .?to\b", f"\\1 {LorcanaSymbols.INK} to", cardText)
@@ -122,12 +124,13 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(r"([Dd])rawa ?card", r"\1raw a card", cardText)
 		cardText = re.sub(r"\bL([ft])\b", "I\\1", cardText)
 		cardText = re.sub(r"\b([Hh])ed\b", r"\1e'd", cardText)
+		cardText = re.sub(r"\bLam\b", "I am", cardText)
 		# Somehow 'a's often miss the space after it
 		cardText = re.sub(r"\bina\b", "in a", cardText)
 		cardText = re.sub(r"\bacard\b", "a card", cardText)
 	elif GlobalConfig.language == Language.FRENCH:
 		# Correct payment text
-		cardText = re.sub(fr"\bpa(yer|ie) (\d+) (?:\W|D|O|Ô|Q|{LorcanaSymbols.STRENGTH})", f"pa\\1 \\2 {LorcanaSymbols.INK}", cardText)
+		cardText = re.sub(fr"\bpa(yer|ie|yez)(\s)(\d+) (?:\W|D|O|Ô|Q|{LorcanaSymbols.STRENGTH})", f"pa\\1\\2\\3 {LorcanaSymbols.INK}", cardText)
 		cardText = re.sub(fr"^(\d) ?[{LorcanaSymbols.STRENGTH}O0](\s)(pour|de moins)\b", fr"\1 {LorcanaSymbols.INK}\2\3", cardText, flags=re.MULTILINE)
 		cardText = re.sub(r"(?<=payer \d)(?=\n)", f" {LorcanaSymbols.INK}", cardText)
 		# Correct support reminder text
@@ -157,7 +160,7 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(fr"((?:\bce personnage|\bil) gagne )\+(\d) [^{LorcanaSymbols.LORE}{LorcanaSymbols.STRENGTH}{LorcanaSymbols.WILLPOWER}]?\.", fr"\1+\2 {LorcanaSymbols.STRENGTH}.", cardText)
 		# Fix second line of 'Challenger'/'Offensif' reminder text
 		cardText = re.sub(r"^\+(\d) ?[^.]{0,2}\.\)$", fr"+\1 {LorcanaSymbols.STRENGTH}.)", cardText, flags=re.MULTILINE)
-		# Sometimes it events a 'c' in 'dommage'
+		# Sometimes it invents a 'c' in 'dommage'
 		cardText = cardText.replace("dommacge", "dommage")
 		# Sometimes a number before 'dommage' gets read as something else, correct that
 		cardText = re.sub(r"\b[l|] dommage", "1 dommage", cardText)
@@ -166,6 +169,7 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(r"\bC[ao]\b", "Ça", cardText)
 		cardText = cardText.replace("personhage", "personnage")
 		cardText = re.sub("[—-]l['’]", "—L'", cardText)
+		cardText = cardText.replace("®", LorcanaSymbols.WILLPOWER)
 	elif GlobalConfig.language == Language.GERMAN:
 		# The Exert symbol sometimes gets missed at the start
 		cardText = re.sub(r"^ ?[-–—]+", f"{LorcanaSymbols.EXERT} —", cardText)
@@ -174,6 +178,7 @@ def correctText(cardText: str) -> str:
 		# Payment text
 		cardText = re.sub(fr"(\d)[ .]?(?:\W|0|D|O|Ô|Q{LorcanaSymbols.STRENGTH}){{,2}}(\s)(mehr )?(be)?zahl(en|t)\b", f"\\1 {LorcanaSymbols.INK}\\2\\3\\4zahl\\5", cardText)
 		cardText = re.sub(fr"zahlst(\sdu)?(\s)(\d) ?[0{LorcanaSymbols.STRENGTH}©]?(?=$| )", f"zahlst\\1\\2\\3 {LorcanaSymbols.INK}", cardText, flags=re.MULTILINE)
+		cardText = re.sub(fr"(?<=\bweniger\s)[{LorcanaSymbols.STRENGTH}QO](?=\sbezahlst\b)", LorcanaSymbols.INK, cardText)
 		# 'Challenger' reminder text
 		cardText = re.sub(r"herausfordert, erhält er \+(\d+) \S+\.\)", f"herausfordert, erhält er +\\1 {LorcanaSymbols.STRENGTH}.)", cardText)
 		# 'Support' reminder text
@@ -206,7 +211,7 @@ def correctText(cardText: str) -> str:
 		cardText = cardText.replace("|", "I")
 		# Correct payment text
 		cardText = re.sub(r"(paga(?:re)? \d) (in|per)", fr"\1 {LorcanaSymbols.INK} \2", cardText)
-		cardText = re.sub(fr"(\b[Pp]ag(a(?:re)?|hi)\s\d )[^{LorcanaSymbols.INK} .]+", fr"\1{LorcanaSymbols.INK}", cardText)
+		cardText = re.sub(fr"(\b[Pp]ag(a(?:re)?|hi)\s\d )[^{LorcanaSymbols.INK} .\n]+", fr"\1{LorcanaSymbols.INK}", cardText)
 		cardText = re.sub(r"(\b[Pp]aga(?:re)?\s\d)[0Q]", f"\\1 {LorcanaSymbols.INK}", cardText)
 		# Correct Support reminder text
 		cardText = re.sub(r"(?<=aggiungere\sla\ssua\s)(?:\S+)(\salla\s)(?:\S+)(?=\sdi\sun)", f"{LorcanaSymbols.STRENGTH}\\1{LorcanaSymbols.STRENGTH}", cardText)
@@ -299,6 +304,9 @@ def correctPunctuation(textToCorrect: str) -> str:
 		if "…" in correctedText:
 			correctedText = re.sub(r"(\w)…", r"\1 …", correctedText)
 			correctedText = re.sub(r"…(\w)", r"… \1", correctedText)
+		# Fix opening quote mark
+		if correctedText.startswith("‚"):
+			correctedText = "„" + correctedText[1:]
 		# Fix closing quote mark
 		correctedText = correctedText.replace("”", "“")
 		# Quotemarks used as letter replacements should be simple quotemarks
@@ -312,7 +320,7 @@ def correctPunctuation(textToCorrect: str) -> str:
 		# It has some trouble recognising exclamation marks
 		correctedText = re.sub(r" ?\.””", "!”", correctedText)
 		# Quotemarks used as letter replacements should be simple quotemarks
-		correctedText = re.sub(r"(?<=\s([Dd][ae]|po))’(?=\.|\s)", "'", correctedText)
+		correctedText = re.sub(r"(?<=\s([Dd][ae]|Pa|po))[’\"”](?=[\.?\s”])", "'", correctedText)
 
 	correctedText = correctedText.rstrip(" -_")
 	correctedText = correctedText.replace("““", "“")

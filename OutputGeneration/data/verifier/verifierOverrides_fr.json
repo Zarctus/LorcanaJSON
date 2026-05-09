@@ -119,6 +119,12 @@
       "ser"
     ]
   },
+  "442": {
+    "flavor_text": [
+      "^$",
+      "[en l'atlante] Bienvenue aux Terres d'Encres"
+    ]
+  },
   "526": {
     "flavor_text": [
       "^.+$",
@@ -176,8 +182,8 @@
   },
   "860": {
     "rules_text": [
-      "2 ",
-      "2"
+      " \\.",
+      "."
     ]
   },
   "904": {
@@ -206,8 +212,8 @@
   },
   "948": {
     "rules_text": [
-      "TIR ",
-      "COUP "
+      "\\\\Tir ",
+      "\\\\Coup "
     ]
   },
   "951": {
@@ -242,16 +248,6 @@
     "flavor_text": [
       "^Cette",
       "La"
-    ]
-  },
-  "1183": {
-    "flavor_text": [
-      "^S.+e\\.$",
-      "Trois vœux, et que ça saute ! —Iago"
-    ],
-    "rules_text": [
-      "une.+$",
-      "3 cartes."
     ]
   },
   "1186": {
@@ -308,8 +304,8 @@
   },
   "1613": {
     "flavor_text": [
-      "!—",
-      "! —"
+      "!”—",
+      "!” —"
     ]
   },
   "1630": {
@@ -381,11 +377,7 @@
   "2151": {
     "_listFieldLengthChange": {
       "fullTextSections": -1
-    },
-    "rules_text": [
-      "4 M",
-      "4 , M"
-    ]
+    }
   },
   "2158": {
     "rules_text": [
@@ -411,6 +403,12 @@
       ""
     ]
   },
+  "2188": {
+    "card_identifier": [
+      "9",
+      "1"
+    ]
+  },
   "2416": {
     "author": [
       "eal \\(L",
@@ -422,11 +420,7 @@
   "2418": {
     "_listFieldLengthChange": {
       "fullTextSections": -1
-    },
-    "rules_text": [
-      "2 H",
-      "2 , H"
-    ]
+    }
   },
   "2444": {
     "author": [
@@ -446,10 +440,16 @@
       " "
     ]
   },
-  "2524": {
-    "rules_text": [
-      "!:",
-      "! :"
+  "2503": {
+    "flavor_text": [
+      "— L",
+      "—  L"
+    ]
+  },
+  "2559": {
+    "flavor_text": [
+      "“ I",
+      "“I"
     ]
   },
   "2576": {
@@ -460,44 +460,92 @@
   },
   "2625": {
     "flavor_text": [
-      "!—",
-      "! —"
+      "!\"—",
+      "!\" —"
     ]
   },
   "2670": {
     "flavor_text": [
-      " ",
-      " "
+      "tc",
+      "t c"
     ]
   },
   "2693": {
     "_listFieldLengthChange": {
       "fullTextSections": -1
-    },
-    "rules_text": [
-      "5 I",
-      "5 , I"
-    ]
+    }
   },
   "2700": {
     "_listFieldLengthChange": {
       "fullTextSections": -1
-    },
-    "rules_text": [
-      "2 H",
-      "2 , H"
-    ]
+    }
   },
   "2704": {
     "rules_text": [
-      "3 L",
-      "3 PAROLES APAISANTES L"
+      "⬡, L",
+      "⬡ PAROLES APAISANTES L"
     ]
   },
   "2714": {
     "author": [
       "^Federico Maria Cugliari$",
       "Lissette Carrera"
+    ]
+  },
+  "2733": {
+    "author": [
+      "Schaffner",
+      "Wolfensberger"
+    ]
+  },
+  "2735": {
+    "rules_text": [
+      "O !",
+      "O!"
+    ]
+  },
+  "2830": {
+    "author": [
+      "Schaffner",
+      "Wolfensberger"
+    ]
+  },
+  "2851": {
+    "flavor_text": [
+      "^E",
+      "[en l'atlante] E"
+    ]
+  },
+  "2853": {
+    "author": [
+      " '",
+      " ‘",
+      "' ",
+      "’ "
+    ]
+  },
+  "2931": {
+    "author": [
+      "Schaffner",
+      "Wolfensberger"
+    ]
+  },
+  "2938": {
+    "rules_text": [
+      "O !",
+      "O!"
+    ]
+  },
+  "2956": {
+    "rules_text": [
+      "Chaque fois que",
+      "Lorsque"
+    ]
+  },
+  "2971": {
+    "flavor_text": [
+      "tc",
+      "t c"
     ]
   }
 }

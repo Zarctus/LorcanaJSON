@@ -281,7 +281,8 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 				# First create a list of ability labels in the input text, if we haven't done that already
 				if not inputAbilityNames:
 					# Ability names are listed between '\' in titlecase, we need them upper case because that's how it's written on the card
-					inputAbilityNames: List[str] = [re.sub(r" ?\.\s\.\s\.\s?", "...", s.upper()) for s in re.findall(r"\\([^\\]+)\\", inputCard["rules_text"])]
+					#  Also correct ellipses to not have spaces inbetween the periods; and sometimes ability names have double spaces so correct those to single ones
+					inputAbilityNames: List[str] = [re.sub(r" ?\.\s\.\s\.\s?", "...", s.replace("  ", " ").upper()) for s in re.findall(r"\\([^\\]+)\\", inputCard["rules_text"])]
 				if abilityIndex >= len(inputAbilityNames):
 					_logger.error(f"Trying to read input ability name index {abilityIndex} but there are only {len(inputAbilityNames)} names, in card {CardUtil.createCardIdentifier(outputCard)}")
 				else:
@@ -297,7 +298,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 							# Sometimes Ravensburger set a wrong ability name. Check for that, so we don't add spaces from a different sentence
 							characterMismatchCount += 1
 							if characterMismatchCount == 4:
-								_logger.info(f"Too many characters mismatch between input abiilty name {inputAbilityName} and output {abilityName} in card {CardUtil.createCardIdentifier(outputCard)}, aborting missing-spaces check")
+								_logger.info(f"Too many characters mismatch between input ability name {inputAbilityName} and output {abilityName} in card {CardUtil.createCardIdentifier(outputCard)}, aborting missing-spaces check")
 								abilityName = abilityNameBeforeSpaceCorrection
 								break
 			if abilityName != originalAbilityName:
@@ -605,7 +606,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 				if "name" in ability:
 					ability["fullText"] = ability["name"]
 					if newlineAfterLabelIndex == abilityIndex:
-						_logger.info(f"Adding newline after ability label index {abilityIndex}")
+						_logger.info(f"Adding newline after ability label index {abilityIndex} from correction")
 						ability["fullText"] += "\n"
 					else:
 						ability["fullText"] += " "
@@ -641,7 +642,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 					ability["effect"] = ability["effect"].strip("()")
 				# If the first line of the fullText is too long, the ability label is probably the full width of the card, so we need to add a newline after it (But not for Locations, those have longer lines)
 				if outputCard["type"] != GlobalConfig.translation.Location and "name" in ability and (ability["fullText"].index("\n") if "\n" in ability["fullText"] else len(ability["fullText"])) >= 70:
-					_logger.info(f"Adding newline after ability label index {abilityIndex}")
+					_logger.info(f"Adding newline after ability label index {abilityIndex} because the line is too long")
 					ability["fullText"] = ability["fullText"][:len(ability["name"])] + "\n" + ability["fullText"][len(ability["name"]) + 1:]
 			outputCard["abilities"][abilityIndex] = {abilityKey: ability[abilityKey] for abilityKey in sorted(ability)}
 	if keywordAbilities:
@@ -769,8 +770,13 @@ def _parseAdditionalInfo(inputCard: Dict, outputCard: Dict):
 			clarifications.extend(infoEntryClarifications)
 		# Some German cards have an artist correction in their 'additional_info', but that's already correct in the data, so ignore that
 		# Bans are listed as additional info, but we handle that separately, so ignore those
+		# Sometimes text changes are listed in additional_info, but we already know about that, so ignore those too
 		# For other additional_info types, print an error, since that should be handled
-		elif infoEntry["title"] != "Illustratorin" and infoEntry["title"] != "Ban":
+		elif infoEntry["title"].strip() not in ("Illustratorin", "Ban",
+												"Updated text", "Updated rule text", "Rules Text", "Updated Description",
+												"Texte mis à jour", "Texte actualisé de la règle", "Texte des règles",
+												"Aktualisierter Text", "Aktualisierter Regeltext", "Regeltext",
+												"Testo aggiornato", "Testo aggiornato della norma", "Testo delle regole"):
 			_logger.warning(f"Unknown 'additional_info' type '{infoEntry['title']}' in card {CardUtil.createCardIdentifier(outputCard)}")
 	if errata:
 		outputCard["errata"] = errata
@@ -783,7 +789,7 @@ def _parseNameFields(inputCard: Dict, outputCard: Dict, ocrResult: OcrResult):
 		# This name is inconsistent, sometimes it has a capital 'M', sometimes a lowercase 'm'
 		# Comparing with capitalization of other cards, this should be a lowercase 'm'
 		outputCard["name"] = outputCard["name"].replace("M", "m")
-	elif outputCard["name"].isupper() and outputCard["name"] not in ("B.E.N.", "I2I"):
+	elif outputCard["name"].isupper() and outputCard["name"] not in ("B.E.N.", "I2I", "R.C.", "RC"):
 		# Some names have capitals in the middle, correct those
 		if outputCard["type"] == GlobalConfig.translation.Character:
 			if outputCard["name"] == "HEIHEI" and GlobalConfig.language == Language.ENGLISH:
@@ -886,7 +892,7 @@ def _parseSubtypes(subtypesText: Optional[str], outputCard: Dict):
 		elif subtype == "toryborn" or subtype == "Storyhorn":
 			subtypes[subtypeIndex] = "Storyborn"
 		# Remove short subtypes, probably erroneous
-		elif len(subtype) < (4 if GlobalConfig.language == Language.ENGLISH else 3) and subtype != "Re":  # 'Re' is Italian for 'King', so it's a valid subtype
+		elif len(subtype) < (4 if GlobalConfig.language == Language.ENGLISH else 3) and subtype not in ("Re", "Toy"):  # 'Re' is Italian for 'King', so it's a valid subtype
 			_logger.debug(f"Removing subtype '{subtype}', too short")
 			subtypes.pop(subtypeIndex)
 		elif not re.search("[aeiouAEIOU]", subtype):

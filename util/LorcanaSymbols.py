@@ -13,3 +13,5 @@ SEPARATOR_STRING = f" {SEPARATOR} "  # Separator with a space at either side, ge
 # Ajoutez cette ligne à la fin du fichier, après la définition de tous les symboles individuels
 
 ALL_SYMBOLS = [EXERT, INK, LORE, STRENGTH, WILLPOWER, INKWELL, SEPARATOR]
+
+LETTER_TO_SYMBOL = {"C": INKWELL, "E": EXERT, "I": INK, "L": LORE, "S": STRENGTH, "W": WILLPOWER}
