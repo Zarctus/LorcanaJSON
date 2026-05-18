@@ -54,8 +54,6 @@ def compareInputToOutput(cardIdsToVerify: Optional[List[int]]):
 		print("No overrides file found")
 		inputOverrides = {}
 
-	openQuotemark = "„" if GlobalConfig.language == Language.GERMAN else "“"
-	closeQuotemark = "“" if GlobalConfig.language == Language.GERMAN else "”"
 	cardDifferencesCount = 0
 	for outputCard in outputCardStore["cards"]:
 		if cardIdsToVerify and outputCard["id"] not in cardIdsToVerify:
@@ -105,7 +103,8 @@ def compareInputToOutput(cardIdsToVerify: Optional[List[int]]):
 		if inputCard.get("flavor_text", None) or "flavorText" in outputCard:
 			if "flavorText" in outputCard:
 				outputFlavorText = outputCard['flavorText']
-				if outputFlavorText.count(openQuotemark) != outputFlavorText.count(closeQuotemark) or outputFlavorText.count("‘") != outputFlavorText.count("’"):
+				if (outputFlavorText.count(GlobalConfig.language.openSingleQuotemark) != outputFlavorText.count(GlobalConfig.language.closeSingleQuotemark)
+						or outputFlavorText.count(GlobalConfig.language.openDoubleQuotemark) != outputFlavorText.count(GlobalConfig.language.closeDoubleQuotemark)):
 					cardDifferencesCount += 1
 					print(f"{outputCard['fullName']} (ID {cardId}, {outputCard['fullIdentifier']}): Mismatched count of open and close quotemarks in flavor text {outputFlavorText!r}")
 				outputFlavorText = outputFlavorText.replace("“", "\"").replace("”", "\"").replace("„", "\"").replace("‘", "'").replace("’", "'")
@@ -245,7 +244,13 @@ def _prepareInputCardRulesText(inputCard: Dict):
 	inputRulesText = re.sub(" ?\n+", " ", inputRulesText)
 	# Ability names are in titlecase between '\', replace that with uppercase (Sometimes they forgot to add the slash at the start, add it if it seems missing)
 	if inputRulesText.count("\\") % 2 == 1:
-		inputRulesText = "\\" + inputRulesText
+		if "\t" in inputRulesText:
+			inputRulesText = inputRulesText.replace("\t", "\\")
+		elif inputRulesText.count("\\") == 3:
+			# Remove the middle separator, since it's probably erroneous
+			inputRulesText = re.sub(r"(\\[^\\]+)\\([^\\]+\\)", "\\1\\2", inputRulesText)
+		else:
+			inputRulesText = "\\" + inputRulesText
 	inputRulesText = re.sub(r"\\([^\\]+)\\", lambda m: m.group(1).upper(), inputRulesText)
 	# Replace bracketed letters with their proper symbol
 	if "{" in inputRulesText:
