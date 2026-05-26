@@ -78,11 +78,15 @@ def compareInputToOutput(cardIdsToVerify: Optional[List[int]]):
 		listEntryLengthChange: Optional[Dict[str, List[int, int]]] = None
 		listFieldLengthChange: Optional[Dict[str, int]] = None
 		symbolCountChange: Optional[Dict[str, int]] = None
+		openQuotemarkCountChange: int = 0
+		closeQuotemarkCountChange: int = 0
 		if cardIdAsString in inputOverrides:
 			inputOverridesForCard = inputOverrides[cardIdAsString]
 			listEntryLengthChange = inputOverridesForCard.pop("_listEntryLengthChange", None)
 			listFieldLengthChange = inputOverridesForCard.pop("_listFieldLengthChange", None)
 			symbolCountChange = inputOverridesForCard.pop("_symbolCountChange", None)
+			openQuotemarkCountChange = inputOverridesForCard.pop("_openQuotemarkCountChange", 0)
+			closeQuotemarkCountChange = inputOverridesForCard.pop("_closeQuotemarkCountChange", 0)
 			for fieldName, correctionsTuple in inputOverridesForCard.items():
 				TextCorrection.correctCardFieldFromList(inputCard, fieldName, correctionsTuple)
 
@@ -103,10 +107,15 @@ def compareInputToOutput(cardIdsToVerify: Optional[List[int]]):
 		if inputCard.get("flavor_text", None) or "flavorText" in outputCard:
 			if "flavorText" in outputCard:
 				outputFlavorText = outputCard['flavorText']
-				if (outputFlavorText.count(GlobalConfig.language.openSingleQuotemark) != outputFlavorText.count(GlobalConfig.language.closeSingleQuotemark)
-						or outputFlavorText.count(GlobalConfig.language.openDoubleQuotemark) != outputFlavorText.count(GlobalConfig.language.closeDoubleQuotemark)):
+				if GlobalConfig.language == Language.GERMAN:
+					# For quoted text inside spoken text, they use different quotemarks (the same ones used in other languages) which means the German closing quotemark is then the opening quotemark
+					# To not throw off the quotemark count, replace the closing quotemark from other languages with the German opening quotemark
+					outputFlavorText = outputFlavorText.replace("”", "„")
+				openQuotemarkCount = outputFlavorText.count(GlobalConfig.language.openSingleQuotemark) + outputFlavorText.count(GlobalConfig.language.openDoubleQuotemark) + openQuotemarkCountChange
+				closeQuotemarkCount = outputFlavorText.count(GlobalConfig.language.closeSingleQuotemark) + outputFlavorText.count(GlobalConfig.language.closeDoubleQuotemark) + closeQuotemarkCountChange
+				if openQuotemarkCount != closeQuotemarkCount:
 					cardDifferencesCount += 1
-					print(f"{outputCard['fullName']} (ID {cardId}, {outputCard['fullIdentifier']}): Mismatched count of open and close quotemarks in flavor text {outputFlavorText!r}")
+					print(f"{outputCard['fullName']} (ID {cardId}, {outputCard['fullIdentifier']}): Mismatched count of open ({openQuotemarkCount}) and close ({closeQuotemarkCountChange}) quotemarks in flavor text {outputFlavorText!r}")
 				outputFlavorText = outputFlavorText.replace("“", "\"").replace("”", "\"").replace("„", "\"").replace("‘", "'").replace("’", "'")
 				# Don't put a space between ellipses and the next word if there's a newline after the ellipsis...
 				outputFlavorText = re.sub(r"(?<=\.\.\.)\n(?=\w)", "", outputFlavorText)
@@ -263,6 +272,7 @@ def _prepareInputCardRulesText(inputCard: Dict):
 	# Some cards have an m-dash instead of normal 'minus' dash in front of numbers
 	inputRulesText = re.sub(r"[–—](?=\d)", "-", inputRulesText)
 	inputRulesText = inputRulesText.replace(" . . .", "..." if GlobalConfig.language == Language.ENGLISH else "…")
+	inputRulesText = inputRulesText.rstrip()
 	if GlobalConfig.language == Language.ENGLISH:
 		inputRulesText = inputRulesText.replace("teammates’ ", "teammates' ").replace("players’ ", "players' ").replace("Illumineers’ ", "Illumineers' ")
 	elif GlobalConfig.language == Language.FRENCH:
@@ -274,6 +284,11 @@ def _prepareInputCardRulesText(inputCard: Dict):
 			inputRulesText = inputRulesText.replace("Lorsqu'il vous défie, un personnage adverse doit,", "Lorsqu'un adversaire défie l'un de vos personnages, il doit,")
 		# They often forget the comma after the ink symbol on lines with multiple keyword abilities
 		inputRulesText = re.sub(f"{LorcanaSymbols.INK} (?=[A-Z][a-zé])", f"{LorcanaSymbols.INK}, ", inputRulesText)
+	elif GlobalConfig.language == Language.GERMAN:
+		# For earlier German cards, they didn't put a space between reminder text and the effect so add that in
+		inputRulesText = re.sub(r"\)(?=\w)", ") ", inputRulesText)
+		# Same problem with the previous effect and the next ability name
+		inputRulesText = re.sub(r"\.(?=[A-Z][A-Z])", ". ", inputRulesText)
 	elif GlobalConfig.language == Language.ITALIAN:
 		inputRulesText = inputRulesText.replace("...", "…")
 	inputCard["rules_text"] = inputRulesText
@@ -305,6 +320,8 @@ def _prepareInputCardFlavorText(inputCard: Dict):
 		inputFlavorText = re.sub(r"(?<=\s)[–—](?=[A-Z])", "–" if 204 < inputCard["culture_invariant_id"] <= 432 else "—", inputFlavorText)
 		# Ellipsis are always preceded by a space
 		inputFlavorText = re.sub(r"(?<=\w)…", " …", inputFlavorText)
+		# Written-out ellipsis (with periods instead of one 'ellipsis'-character) are written with a space between the periods: remove that
+		inputFlavorText = re.sub(r"\. (?=\.)", ".", inputFlavorText)
 	inputCard["flavor_text"] = inputFlavorText
 
 def _printDifferencesDescription(outputCard: Dict, fieldName: str, inputString: str, outputString: str):
