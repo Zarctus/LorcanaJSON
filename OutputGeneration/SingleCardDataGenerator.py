@@ -1,5 +1,5 @@
 import logging, re
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import GlobalConfig
 from APIScraping.ExternalLinksHandler import ExternalLinksHandler
@@ -17,6 +17,7 @@ _CARD_CODE_LOOKUP = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVW
 _KEYWORD_REGEX = re.compile(r"(?:^|\n)([A-ZÀ][^.]+)(?=\s\([A-Z])")
 _KEYWORD_REGEX_WITHOUT_REMINDER = re.compile(r"^([A-ZÀ][^ ]{2,}|À)( ([dl]['’])?[A-Zasu][^ ]{2,})?( \d+)?( .)?$")
 _ABILITY_TYPE_CORRECTION_FIELD_TO_ABILITY_TYPE: Dict[str, str] = {"_forceAbilityIndexToActivated": "activated", "_forceAbilityIndexToKeyword": "keyword", "_forceAbilityIndexToStatic": "static", "_forceAbilityIndexToTriggered": "triggered"}
+_SYMBOL_LETTER_REGEX = re.compile(f"[{''.join(LorcanaSymbols.LETTER_TO_SYMBOL.values())}]")
 
 
 def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler: ExternalLinksHandler, relatedCards: RelatedCards, cardDataCorrections: Dict, storyParser: StoryParser,
@@ -169,9 +170,12 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 	if ocrResult.flavorText:
 		flavorText = TextCorrection.correctText(ocrResult.flavorText)
 		flavorText = TextCorrection.correctPunctuation(flavorText)
-		# Sometimes it misses the opening quotemark of flavortext, add that back
-		if inputCard["flavor_text"].startswith(GlobalConfig.language.openDoubleQuotemark) and not flavorText.startswith(GlobalConfig.language.openDoubleQuotemark):
-			flavorText = GlobalConfig.language.openDoubleQuotemark + flavorText
+		# Sometimes it misses or misreads the opening quotemark of flavortext, add that back
+		if inputCard["flavor_text"].startswith(GlobalConfig.language.openDoubleQuotemark) or inputCard["flavor_text"].startswith("\""):
+			if flavorText.startswith(GlobalConfig.language.openSingleQuotemark) or flavorText.startswith("'") or flavorText.startswith(GlobalConfig.language.closeSingleQuotemark):
+				flavorText = flavorText[1:]
+			if not flavorText.startswith(GlobalConfig.language.openDoubleQuotemark):
+				flavorText = GlobalConfig.language.openDoubleQuotemark + flavorText
 		# Tesseract often sees the italic 'T' as an 'I', especially at the start of a word. Fix that
 		if GlobalConfig.language == Language.ENGLISH and "I" in flavorText:
 			flavorText = re.sub(r"(^|\W)I(?=[ehiow]\w)", r"\1T", flavorText)
@@ -314,6 +318,28 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 				"name": abilityName,
 				"effect": abilityEffect
 			})
+
+	if "{" in inputCard["rules_text"] and abilities and not effects:  # Correcting symbols in both effects and abilities at the same time is hard, because you have to check two separate lists
+		inputSymbols: List[str] = re.findall("(?<=\\{)[A-Z](?=})", inputCard["rules_text"])
+		# A list of tuples with all the symbol matches in abilities.
+		# First element is the symbol string, second is ability index, third is ability text field name (to handle keyword abilities), fourth is position within the ability text
+		outputSymbolsByAbility: List[Tuple[str, int, str, int]] = []
+		for abilityIndex, ability in enumerate(abilities):
+			abilityFieldName = "fullText" if "fullText" in ability else "effect"
+			for symbolMatch in _SYMBOL_LETTER_REGEX.finditer(ability[abilityFieldName]):
+				outputSymbolsByAbility.append((symbolMatch.group(0), abilityIndex, abilityFieldName, symbolMatch.start()))
+
+		if len(inputSymbols) == len(outputSymbolsByAbility):
+			# Same number of symbols, so assume the output symbol should be the same as the input symbol at each index
+			for symbolIndex in range(len(inputSymbols)):
+				symbol = LorcanaSymbols.LETTER_TO_SYMBOL[inputSymbols[symbolIndex]]
+				if symbol != outputSymbolsByAbility[symbolIndex][0]:
+					wrongSymbol, abilityIndex, abilityFieldName, symbolPosition = outputSymbolsByAbility[symbolIndex]
+					ability = abilities[abilityIndex]
+					oldAbilityText = ability[abilityFieldName]
+					ability[abilityFieldName] = ability[abilityFieldName][:symbolPosition] + symbol + ability[abilityFieldName][symbolPosition+1:]
+					_logger.debug(f"Correcting ability text at index {abilityIndex} from {oldAbilityText!r} to {ability[abilityFieldName]!r} in card {CardUtil.createCardIdentifier(outputCard)}")
+
 	if abilities:
 		outputCard["abilities"] = abilities
 	if effects:

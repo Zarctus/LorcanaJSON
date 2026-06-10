@@ -98,8 +98,8 @@ def correctText(cardText: str) -> str:
 		# It gets a bit confused about exert and payment, correct that
 		cardText = re.sub(r"^\(20 ", f"{LorcanaSymbols.EXERT}, 2 {LorcanaSymbols.INK} ", cardText)
 		# The Lore symbol after 'location's' often gets missed or misread as a '4'
-		# cardText = cardText.replace("location's .", f"location's {LorcanaSymbols.LORE}.")
 		cardText = re.sub("(?<=location's )4?\\.", f"{LorcanaSymbols.LORE}.", cardText)
+		cardText = cardText.replace("®", LorcanaSymbols.WILLPOWER)
 		## Correct reminder text ##
 		# Challenger
 		cardText = re.sub(r"\(They get \+(\d)$", f"(They get +\\1 {LorcanaSymbols.STRENGTH}", cardText, flags=re.MULTILINE)
@@ -170,6 +170,7 @@ def correctText(cardText: str) -> str:
 		cardText = cardText.replace("personhage", "personnage")
 		cardText = re.sub("[—-]l['’]", "—L'", cardText)
 		cardText = cardText.replace("®", LorcanaSymbols.WILLPOWER)
+		cardText = re.sub(r"(?<=\d )W(?=[. ])", LorcanaSymbols.WILLPOWER, cardText)
 	elif GlobalConfig.language == Language.GERMAN:
 		# The Exert symbol sometimes gets missed at the start
 		cardText = re.sub(r"^ ?[-–—]+", f"{LorcanaSymbols.EXERT} —", cardText)
@@ -232,6 +233,8 @@ def correctText(cardText: str) -> str:
 		cardText = cardText.replace(f"{LorcanaSymbols.STRENGTH})", LorcanaSymbols.STRENGTH)
 		# It sometimes reads the Exert symbol as a bracket
 		cardText = cardText.replace("(uno", f"{LorcanaSymbols.EXERT} uno")
+		# The 'Reserved'-symbol is Willpower
+		cardText = cardText.replace("®", LorcanaSymbols.WILLPOWER)
 		# It reads 'Iena' (Italian for 'Hyena'), as 'lena'
 		cardText = re.sub(r"\blena", "Iena", cardText)
 		# It sometimes read 'volta' on a new line as starting with a capital V
