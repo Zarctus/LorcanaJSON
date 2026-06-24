@@ -4,7 +4,8 @@ from typing import Optional
 
 from util import LorcanaSymbols
 
-_IDENTIFIER_REGEX = re.compile(r"^(?P<number>[0-9V]+)(?P<variant>[A-Za-z])?[/1](?P<grouping>[A-Z]?\d+'?)( ?[-+<«.]{1,2} ?| (. )?)(?P<language>\w+)( ?[-+<«.]{1,2} ?| (. )?)(?P<setCode>\S+)$")
+_IDENTIFIER_REGEX = re.compile(r"^(?P<number>[0-9V]+)(?P<variant>[A-Za-z])?[/1](?P<grouping>[A-Z]{0,2}\d+'?)( ?[-+<«.]{1,2} ?| (. )?)(?P<language>\w+)( ?[-+<«.]{1,2} ?| (. )?)(?P<setCode>\S+)$")
+_BASE_CARD_REGEX = re.compile(r"^20\d$")
 _LOGGER = logging.getLogger("LorcanaJSON")
 
 @dataclass
@@ -12,17 +13,30 @@ class Identifier:
 	"""
 	This class represents a card identifier as it's printed at the bottom-left of a card. It contains the card number, language, set code, etc
 	"""
-	grouping: str  # 'P1', 'Q1', 'D23, etc. This is '204' for 'normal' and Enchanted cards
+	grouping: str  # 'P1', 'Q1', 'D23, etc. This is '204' for 'normal' and Enchanted cards (or sometimes '207', like in Set 13)
 	language: str
 	number: int
 	setCode: str
 	variant: str = None
 
+	def isBaseCard(self) -> bool:
+		"""
+		:return: True if this card is a base card, so if it's not a special card and its number is lower or equal than its grouping number (so not Epic, Enchanted, etc)
+		"""
+		if self.isPromo() or self.isQuest():
+			return False
+		groupingNumberMatch = _BASE_CARD_REGEX.match(self.grouping)
+		if not groupingNumberMatch:
+			# Not a normally numbered card, so it can't be a base card
+			return False
+		groupingNumber = int(groupingNumberMatch.group(0))
+		return self.number <= groupingNumber
+
 	def isPromo(self) -> bool:
 		"""
 		:return: True if this identifier is for a Promo card, False otherwise
 		"""
-		# 'Normal' cards have a grouping of '204' (or '31' for Q1 cards), so anything that doesn't have that grouping is special in some way
+		# 'Normal' cards have a grouping of '204' (or '31' for Q1 cards; '207' for Set 13), so anything that doesn't have that grouping is special in some way
 		return not self.grouping.isdigit()
 
 	def isQuest(self) -> bool:
@@ -49,7 +63,7 @@ def parseIdentifier(identifierString: str) -> Optional[Identifier]:
 	"""
 	if identifierString.startswith("1TFC "):
 		# Special case for the original cards
-		# There the idenifier is in the format 1TFC EN n/P1
+		# There the identifier is in the format 1TFC EN n/P1
 		parsedIdentifier = re.match(r"^1TFC (?P<language>[A-Z]+) (?P<number>\d+)/P1", identifierString)
 		return Identifier("P1", parsedIdentifier.group("language"), int(parsedIdentifier.group("number"), 10), "1")
 

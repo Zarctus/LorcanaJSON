@@ -48,6 +48,8 @@ class RelatedCards:
 	def addCard(self, card: Dict):
 		cardId: int = card["culture_invariant_id"]
 		parsedIdentifier = IdentifierParser.parseIdentifier(card["card_identifier"])
+		if not parsedIdentifier:
+			raise ValueError(f"Unable to parse identifier from '{card['card_identifier']}'")
 		if parsedIdentifier.setCode not in self.printedInSets:
 			self.printedInSets.append(parsedIdentifier.setCode)
 		if parsedIdentifier.isQuest():
@@ -66,8 +68,8 @@ class RelatedCards:
 			self._addFancyArtBySet(card, parsedIdentifier.setCode, self.enchantedCardIdsBySet)
 		elif card["rarity"] == "ICONIC":
 			self._addFancyArtBySet(card, parsedIdentifier.setCode, self.iconicCardIdsBySet)
-		elif parsedIdentifier.number > 204:
-			# A card numbered higher than the normal 204 that isn't an Enchanted is also most likely a promo card (F.i. the special Q1 cards like ID 1179)
+		elif not parsedIdentifier.isBaseCard():
+			# A card numbered higher than the normal 204 (or 207) that isn't an Enchanted is also most likely a promo card (F.i. the special Q1 cards like ID 1179)
 			self.promoCardIds.append(cardId)
 		else:
 			# Store the non-Enchanted non-Promo card with the lowest ID as the 'original', so Enchanted and Promo cards, and reprints, can reference it
