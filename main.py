@@ -76,6 +76,8 @@ def _setUpLogger(loglevelFromConfig: Optional[str], loglevelFromArgs: Optional[s
 	logger.addHandler(loggingFileHandler)
 
 	# Also print everything to the console
+	if hasattr(sys.stdout, "reconfigure"):
+		sys.stdout.reconfigure(errors="backslashreplace")
 	loggingStreamHandler = logging.StreamHandler(sys.stdout)
 	loggingStreamHandler.setLevel(logging.DEBUG)
 	loggingStreamHandler.setFormatter(loggingFormatter)

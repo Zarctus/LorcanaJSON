@@ -569,8 +569,11 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 				ability["keyword"] = keyword
 				if keywordValue is not None:
 					ability["keywordValue"] = keywordValue
-					if keywordValue[-1].isnumeric():
-						ability["keywordValueNumber"] = int(keywordValue.lstrip("+"), 10)
+					keywordValueNumber = keywordValue.lstrip("+")
+					if re.fullmatch(r"\d+", keywordValueNumber):
+						ability["keywordValueNumber"] = int(keywordValueNumber, 10)
+					elif keywordValue[-1].isnumeric():
+						_logger.warning(f"Keyword value {keywordValue!r} for card {CardUtil.createCardIdentifier(outputCard)} ends in a digit but is not numeric; skipping 'keywordValueNumber'")
 				if reminderText is not None:
 					ability["reminderText"] = reminderText
 				keywordAbilities.append(keyword)
