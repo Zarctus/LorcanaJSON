@@ -1,6 +1,6 @@
 import logging, math, os, re, time
 from collections import namedtuple
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 import cv2, tesserocr
 from PIL import Image
@@ -43,7 +43,7 @@ class ImageParser:
 	def getImageAndTextDataFromImage(self, cardId: int, baseImagePath: str, parseFully: bool, parsedIdentifier: IdentifierParser.Identifier = None, cardType: str = None, hasCardText: bool = None, hasFlavorText: bool = None,
 									 isEpic: bool = False, isEnchanted: bool = None, showImage: bool = False) -> OcrResult:
 		startTime = time.perf_counter()
-		result: Dict[str, Optional[ImageAndText, List[ImageAndText]]] = {
+		result: Dict[str, Optional[Union[ImageAndText, List[ImageAndText]]]] = {
 			"flavorText": None,
 			"abilityLabels": [],
 			"abilityTexts": [],
@@ -128,7 +128,7 @@ class ImageParser:
 			isCharacter = cardType == GlobalConfig.translation.Character
 		# First determine the card (sub)type
 		typesImageArea = (parseSettings.locationCardLayout if isLocation else parseSettings.cardLayout).types
-		typesImage = self._getSubImage(greyCardImage, typesImageArea)
+		typesImage = self._getSubImage(greyCardImage, typesImageArea, offsetTop=parseSettings.textboxTopOffset, offsetBottom=parseSettings.textboxTopOffset)
 		typesImage = self._convertToThresholdImage(typesImage, parseSettings.typeImageTextColorOverride if parseSettings.typeImageTextColorOverride else typesImageArea.textColour)
 		typesImageText = self._imageToString(typesImage).strip("\"'‘-1|{} ")
 		if "\n" in typesImageText:
@@ -176,7 +176,7 @@ class ImageParser:
 			result["identifier"] = self._getSubImageAndText(greyCardImage, cardLayout.identifier)
 
 		# Greyscale images work better, so get one from just the textbox
-		greyTextboxImage = self._getSubImage(greyCardImage, cardLayout.textbox, parseSettings.textboxOffset, parseSettings.textboxRightOffset*-1)
+		greyTextboxImage = self._getSubImage(greyCardImage, cardLayout.textbox, parseSettings.textboxLeftOffset, parseSettings.textboxRightOffset * -1, parseSettings.textboxTopOffset, parseSettings.textboxBottomOffset)
 		textboxWidth = greyTextboxImage.shape[1]
 		textboxHeight = greyTextboxImage.shape[0]
 
@@ -261,11 +261,13 @@ class ImageParser:
 						if lineRightY < 10:
 							self._logger.warning(f"Found line at x={lineRightX} y={lineRightY} for card ID {cardId} but that is too close to the top, skipping")
 							continue
+						if hasFlavorText:
+							lineLeftX = line[0][0]
+							# Skip presumed flavor-text separator lines
+							if lineLeftX > 150 or lineRightX - lineLeftX > 800:
+								continue
 						# If this line is too close to the previous one, it's probably the bottom line of the previous top line of the same label; skip it
 						if lastBottomY and lineRightY - lastBottomY < 80:
-							if hasFlavorText and labelCoords and lineRightY - lastBottomY < 10:
-								# It confused the flavor text separator for the start of an ability name label, remove the last added label
-								del labelCoords[-1]
 							continue
 						isTopLine = greyTextboxImage[lineRightY - 1, lineRightX] > greyTextboxImage[lineRightY + 1, lineRightX]  # Images use y,x
 						if not parseSettings.labelIsDarkerThanBackground:
@@ -288,7 +290,7 @@ class ImageParser:
 		flavorTextLineDetectionCroppedImage: Optional[cv2.Mat] = None
 		flavorTextEdgeDetectedImage = None
 		flavorTextGreyscaleImageWithLines = None
-		if (parseSettings.hasFlavorTextOverride or (parseSettings.hasFlavorTextOverride is None and hasFlavorText is not False)) and parseSettings.labelParsingMethod != ParseSettings.LABEL_PARSING_METHODS.FALLBACK_BY_LINES:
+		if parseSettings.hasFlavorTextOverride or (parseSettings.hasFlavorTextOverride is None and hasFlavorText is not False):
 			flavorTextImageTop = 0
 			flavorTextLineDetectionCroppedImage = greyTextboxImage
 			if labelCoords:
@@ -372,7 +374,19 @@ class ImageParser:
 				remainingTextImage = self._convertToThresholdImage(greyTextboxImage[0:previousBlockTopY, 0:textboxWidth], parseSettings.thresholdTextColor)
 				if parseSettings.cardTextHasOutline:
 					cv2.floodFill(remainingTextImage, None, (1, 1), 0)
-				remainingText = self._imageToString(remainingTextImage)
+				# For some cards, it thinks there is remaining text, but they're just random markings (mainly Floodborn cards with ink splotches dripping from the subtypes)
+				# If the image is too white, it can't be text, so discard the erroneous remaining text image
+				# Only do this check if there's at least one ability, because the percentages can get weird if there's one short effect on the whole card, leading to false positives
+				if result["abilityLabels"] and cv2.countNonZero(remainingTextImage) / remainingTextImage.size > 0.96:
+					# Double-check that the problem is blotches at the top by verifying the bottom half is completely white
+					remainingTextImageBottomHalf = remainingTextImage[remainingTextImage.shape[0] // 2:remainingTextImage.shape[0], 0:remainingTextImage.shape[1]]
+					if cv2.countNonZero(remainingTextImageBottomHalf) / remainingTextImageBottomHalf.size >= 0.99:
+						self._logger.debug(f"Remaining text image for card ID {cardId} has too much white to be text, discarding")
+						remainingTextImage = None
+				if remainingTextImage is None:
+					remainingText = None
+				else:
+					remainingText = self._imageToString(remainingTextImage)
 				if remainingText:
 					if parseSettings.labelParsingMethod == ParseSettings.LABEL_PARSING_METHODS.FALLBACK_WHITE_ABILITY_TEXT and re.search("[A-Z]{2,}", remainingText):
 						# Detecting labels on new-style Enchanted cards is hard, so for those the full card text is 'remainingText'
@@ -466,8 +480,8 @@ class ImageParser:
 		return ocrResult
 
 	@staticmethod
-	def _getSubImage(image, imageArea: ImageArea.ImageArea, offsetLeft: int = 0, offsetRight: int = 0) -> cv2.Mat:
-		return image[imageArea.coords.top:imageArea.coords.bottom, imageArea.coords.left+offsetLeft:imageArea.coords.right+offsetRight]
+	def _getSubImage(image, imageArea: ImageArea.ImageArea, offsetLeft: int = 0, offsetRight: int = 0, offsetTop: int = 0, offsetBottom: int = 0) -> cv2.Mat:
+		return image[imageArea.coords.top+offsetTop:imageArea.coords.bottom+offsetBottom, imageArea.coords.left+offsetLeft:imageArea.coords.right+offsetRight]
 
 	@staticmethod
 	def _convertToThresholdImage(greyscaleImage, textColour: ImageArea.TextColour) -> cv2.Mat:

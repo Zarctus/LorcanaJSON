@@ -1922,12 +1922,6 @@
       "Gal"
     ]
   },
-  "1352": {
-    "abilities": [
-      "^_ ",
-      ""
-    ]
-  },
   "1355": {
     "abilities": [
       "inv",
@@ -2583,11 +2577,9 @@
     "_addNameToAbilityAtIndex": [1, "MUR GLACIAL"]
   },
   "1933": {
-    "_effectAtIndexIsAbility": [0, "SUFFISAMMENT POUR TOUT LE MONDE"],
-    "_effectAtIndexIsFlavorText": 0,
-    "effects": [
-      "«Aa f",
-      "À la f"
+    "abilities": [
+      "BAU",
+      "SUFFISAM"
     ]
   },
   "1934": {
@@ -2881,12 +2873,6 @@
       "L'E"
     ]
   },
-  "2183": {
-    "rarity": [
-      "Enchantée",
-      "Spécial"
-    ]
-  },
   "2188": {
     "fullIdentifier": [
       "9",
@@ -2899,12 +2885,6 @@
       "… ",
       "2\n",
       "2 ¤\n"
-    ]
-  },
-  "2212": {
-    "abilities": [
-      "^_ ",
-      ""
     ]
   },
   "2220": {
@@ -2993,8 +2973,6 @@
   },
   "2280": {
     "abilities": [
-      "^_ ",
-      "",
       "Em",
       "Ém"
     ]
@@ -4226,22 +4204,6 @@
     "flavorText": [
       "\nN a \\.”\"",
       ""
-    ]
-  },
-  "2968": {
-    "abilities": [
-      "^_ ",
-      ""
-    ]
-  },
-  "2969": {
-    "abilities": [
-      "^_ ",
-      ""
-    ],
-    "rarity": [
-      "Enchantée",
-      "Spécial"
     ]
   },
   "2971": {

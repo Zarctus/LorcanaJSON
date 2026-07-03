@@ -25,7 +25,7 @@ def correctText(cardText: str) -> str:
 	# And word-number-number should be word-number-ink
 	cardText = re.sub(r"^(\w+ \d) ?[OÒQ0©]$", f"\\1 {LorcanaSymbols.INK}", cardText)
 	# Normally a closing quote mark should be preceded by a period, except mid-sentence
-	cardText = re.sub(r"([^.,'!?’])”(?!,| \w)", "\\1.”", cardText)
+	cardText = re.sub(r"([^.,'!?’])”(?![!,]| \w)", "\\1.”", cardText)
 	# An opening bracket shouldn't have a space after it
 	cardText = cardText.replace("( ", "(")
 	# Sometimes an extra character gets added after the closing quote mark or bracket from an inksplotch, remove that
@@ -88,6 +88,7 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(r"\bopponents’(\s|$)", r"opponents'\1", cardText, flags=re.MULTILINE)
 		cardText = re.sub(r"\bIllumineers’(\s|$)", r"Illumineers'\1", cardText, flags=re.MULTILINE)
 		cardText = re.sub(r"\bcharacters’(\s|$)", r"characters'\1", cardText, flags=re.MULTILINE)
+		cardText = re.sub(r"\bfriends’(\s|$)", r"friends'\1", cardText, flags=re.MULTILINE)
 		cardText = re.sub(r"\bo’(\s|$)", r"o'\1", cardText, flags=re.MULTILINE)
 		## Correct common phrases with symbols ##
 		# Ink payment discounts
@@ -125,6 +126,7 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(r"\bL([ft])\b", "I\\1", cardText)
 		cardText = re.sub(r"\b([Hh])ed\b", r"\1e'd", cardText)
 		cardText = re.sub(r"\bLam\b", "I am", cardText)
+		cardText = re.sub("(^|“)! ", "\\1I ", cardText)
 		# Somehow 'a's often miss the space after it
 		cardText = re.sub(r"\bina\b", "in a", cardText)
 		cardText = re.sub(r"\bacard\b", "a card", cardText)
@@ -280,6 +282,7 @@ def correctPunctuation(textToCorrect: str) -> str:
 	# It frequently misses the dash before a quote attribution
 	correctedText = re.sub(r"\n([A-Z]\w+)$", "\n—\\1", correctedText)
 	# Fix some erroneous extra punctuation
+	correctedText = re.sub(r"^_ ", "", correctedText)
 	correctedText = re.sub(r"\? [.;]$", "?", correctedText)
 	# Ellipses get parsed weird, with spaces between periods where they don't belong. Fix that
 	if correctedText.count(".") > 2:
@@ -298,6 +301,7 @@ def correctPunctuation(textToCorrect: str) -> str:
 		correctedText = re.sub(r"\b([Tt]hey|[Yy]ou) ?(ll|re|ve)\b", r"\1'\2", correctedText)
 		correctedText = re.sub(r"\bIAM\b", "I AM", correctedText)
 		correctedText = re.sub(r"\bl'm\b", "I'm", correctedText)
+		correctedText = re.sub(r"\bwe re\b", "we're", correctedText)
 		# Correct fancy quotemarks when they're used in shortenings (f.i. "'em", "comin'", etc.)
 		correctedText = re.sub(r"(?<=\s)[‘’](?=(cause|em|round|til)([,.?!]|\s|$))", "'", correctedText, flags=re.IGNORECASE)
 		correctedText = re.sub(r"(?<=\win)[‘’](?=[,.?!]|\s|$)", "'", correctedText, flags=re.IGNORECASE)

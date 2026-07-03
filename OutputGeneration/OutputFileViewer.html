@@ -61,11 +61,11 @@ Cost: <span id="cost-value"></span> | Inkwell: <span id="inkwell-value"></span> 
 Abilities: <span id="abilities-count"></span> | Effects: <span id="effects-count"></span> ||
 Subtypes (<span id="subtypesCount">0</span>): <span id="subtypes"></span>
 <br>
-Artists (<span id="artistCount">0</span>): <span id="artist"></span> || Rarity: <span id="rarity"></span>
+Artists (<span id="artistCount">0</span>): <span id="artist"></span> || Rarity: <span id="rarity"></span> || Full identifier: <span id="fullIdentifier"></span>
+<span id="promoFieldsContainer" style="visibility: collapse;"> || Promo Source Category: <span id="promoSourceCategory"></span> | Promo Source: <span id="promoSource"></span></span>
 <hr>
-<pre id="cardJson" style="overflow-x: scroll;"></pre>
-<hr>
-<a id="cardImageLink" href="#" target="_blank">Card Image</a> ||
+<a id="cardImageLink" href="#" target="_blank">Card Image</a> |
+<a id="foilCardImageLink" href="#" target="_blank" style="text-decoration-line: line-through;">Foil</a> ||
 <a id="baseCardLink" href="#" onclick="goToIdOfField('baseId'); return false;">Base card</a> |
 <a id="epicLink" href="#" onclick="goToIdOfField('epicId'); return false;">Epic</a> |
 <a id="enchantedLink" href="#" onclick="goToIdOfField('enchantedId'); return false;">Enchanted</a> |
@@ -76,6 +76,15 @@ Artists (<span id="artistCount">0</span>): <span id="artist"></span> || Rarity: 
 <a id="cardmarketLink" href="#" target="_blank" style="text-decoration-line: line-through;">Cardmarket</a> |
 <a id="cardTraderLink" href="#" target="_blank" style="text-decoration-line: line-through;">CardTrader</a> |
 <a id="tcgPlayerLink" href="#" target="_blank" style="text-decoration-line: line-through;">TcgPlayer</a>
+<hr>
+<pre id="cardJson" style="overflow-x: scroll;"></pre>
+<hr>
+Keys:<br>
+Left/Right arrows for previous/next card index<br>
+Type numbers or Backspace to start entering a card ID<br>
+E for English, D/G for German, F for French, I for Italian<br>
+P for last-viewed card, R for a random card, X to open external links
+
 <script>
 let cardsJson = {"cards": []};
 
@@ -83,6 +92,7 @@ let languageCode = "en";
 let currentIndex = 0;
 let maxIndex = 0;
 let fileReader = null // Set to a FileReader and used when loading a JSON file from the 'Browse' button
+let previousIndex = null;
 
 function changeDisplayedIndex(indexChange) {
 	setDisplayedIndex(currentIndex + indexChange, false);
@@ -99,6 +109,7 @@ function setDisplayedIndex(newIndex, showErrorMessage=true) {
 		}
 		return;
 	}
+	previousIndex = currentIndex;
 	currentIndex = newIndex;
 	let currentCardData = cardsJson["cards"][currentIndex];
 	document.getElementById("name").textContent = currentCardData["fullName"];
@@ -116,12 +127,14 @@ function setDisplayedIndex(newIndex, showErrorMessage=true) {
 	document.getElementById("currentIndex").value = currentIndex;
 	document.getElementById("cardId").value = currentCardData["id"];
 	document.getElementById("cardImageLink").href = currentCardData["images"]["full"];
+	updateOptionalLink("foilCardImageLink", currentCardData["images"], "fullFoil");
 	document.getElementById("story").textContent = currentCardData["story"] ? currentCardData["story"] : "???";
 	document.getElementById("subtypesCount").textContent = currentCardData["subtypes"] ? currentCardData["subtypes"].length : "0";
 	document.getElementById("subtypes").textContent = currentCardData["subtypesText"] ? currentCardData["subtypesText"] : "-";
 	document.getElementById("artistCount").textContent = currentCardData["artists"].length;
 	document.getElementById("artist").textContent = currentCardData["artistsText"];
 	document.getElementById("rarity").textContent = currentCardData["rarity"];
+	document.getElementById("fullIdentifier").textContent = currentCardData["fullIdentifier"];
 	for (const fieldname of ["cost", "inkwell", "moveCost", "strength", "willpower", "lore"]) {
 		document.getElementById(fieldname + "-value").textContent = currentCardData[fieldname] === undefined ? "-" : currentCardData[fieldname];
 	}
@@ -130,9 +143,17 @@ function setDisplayedIndex(newIndex, showErrorMessage=true) {
 	}
 	// Update the external links
 	if (currentCardData.hasOwnProperty("externalLinks") && currentCardData["externalLinks"]) {
-		updateExternalLink("cardmarketLink", currentCardData["externalLinks"], "cardmarketUrl");
-		updateExternalLink("cardTraderLink", currentCardData["externalLinks"], "cardTraderUrl");
-		updateExternalLink("tcgPlayerLink", currentCardData["externalLinks"], "tcgPlayerUrl");
+		updateOptionalLink("cardmarketLink", currentCardData["externalLinks"], "cardmarketUrl");
+		updateOptionalLink("cardTraderLink", currentCardData["externalLinks"], "cardTraderUrl");
+		updateOptionalLink("tcgPlayerLink", currentCardData["externalLinks"], "tcgPlayerUrl");
+	}
+	// Fill in the promo fields if they exist
+	if (currentCardData["promoSourceCategory"] || currentCardData["promoSource"]) {
+		document.getElementById("promoFieldsContainer").style.visibility = "visible";
+		document.getElementById("promoSourceCategory").textContent = currentCardData["promoSourceCategory"] === undefined ? "-" : currentCardData["promoSourceCategory"];
+		document.getElementById("promoSource").textContent = currentCardData["promoSource"] === undefined ? "-" : currentCardData["promoSource"];
+	} else {
+		document.getElementById("promoFieldsContainer").style.visibility = "collapse";
 	}
 	// Some 'fullText' goes off the screen, creating a scrollbar. Pressing left or right both scrolls and changes index. Reset horizontal scroll after changing index so we don't start a new image scrolled
 	document.scrollLeft = 0;
@@ -179,10 +200,10 @@ function goToNextSet() {
 		}
 	}
 }
-function updateExternalLink(linkId, externalLinkData, externalLinkName) {
+function updateOptionalLink(linkId, dataContainer, dataKey) {
 	const linkElement = document.getElementById(linkId);
-	if (externalLinkData[externalLinkName]) {
-	  linkElement.href = externalLinkData[externalLinkName];
+	if (dataContainer[dataKey]) {
+	  linkElement.href = dataContainer[dataKey];
 	  linkElement.style.removeProperty("text-decoration-line");
 	} else {
 	  linkElement.href = "#";
@@ -208,6 +229,10 @@ function handleKeyPress(e) {
 			setLanguage("de");
 		} else if (e.key === "i") {
 			setLanguage("it");
+		} else if (e.key === "p") {
+			if (previousIndex !== null) {
+				setDisplayedIndex(previousIndex);
+			}
 		} else if (e.key === "r") {
 			changeToRandomIndex();
 		} else if (e.key === "x") {

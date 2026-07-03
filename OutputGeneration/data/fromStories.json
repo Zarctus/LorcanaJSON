@@ -277,7 +277,7 @@
       "it": "Le follie dell'imperatore"
     },
     "matchingNames": ["Bucky", "Chaca", "Chicha", "Kronk", "Kuzco", "Pacha", "Tipo", "Yzma"],
-    "matchingIds": [199, 1058, 1120, 1130, 1131, 1716, 1744, 1780, 1880, 1891]
+    "matchingIds": [199, 1058, 1120, 1130, 1131, 1716, 1744, 1780, 1880, 1891, 3153, 3161]
   },
   "ladyandthetramp": {
     "displayNames": {
@@ -329,7 +329,7 @@
       "fr": "Lorcana",
       "it": "Lorcana"
     },
-    "matchingNames": ["Chromicon", "Hexwell", "Martin", "Shanzay", "The Great Illuminary", "Venturo"],
+    "matchingNames": ["Chromicon", "Hexwell", "Martin", "Shanzay", "The Great Illuminary", "The Vine", "Venturo"],
     "matchingIds": [380, 535, 789, 792, 825, 859, 891, 952, 986, 987, 1020, 1055, 1125, 1179, 1267, 1300, 1301, 1362, 1399, 1516, 1552, 1784, 2561, 2850],
     "matchingFields": {
       "card_identifier": " Q\\d$"
@@ -343,7 +343,7 @@
       "it": "Topolino e i suoi amici"
     },
     "matchingNames": ["Clarabelle", "Daisy Duck", "Donald Duck", "Goofy", "Ludwig von Drake", "Ludwig Von Drake", "Mickey Mouse", "Minnie Mouse", "Pete", "Pluto", "The Phantom Blot"],
-    "matchingIds": [718, 784, 1154, 1155, 2353, 2408, 2426]
+    "matchingIds": [718, 784, 1154, 1155, 2353, 2408, 2426, 3075]
   },
   "mickeyandthebeanstalk": {
     "isPriorityStory": true,
@@ -353,7 +353,7 @@
       "fr": "Mickey et le Haricot magique",
       "it": "Topolino e il fagiolo magico"
     },
-    "matchingNames": ["Golden Harp"]
+    "matchingNames": ["Golden Harp", "Willie the Giant"]
   },
   "mickeyschristmascarol": {
     "isPriorityStory": true,
@@ -579,6 +579,14 @@
     },
     "matchingNames": ["B.E.N.", "Billy Bones", "Captain Amelia", "Dr. Delbert Doppler", "Grewnge", "Jim Hawkins", "John Silver", "Morph", "Mr. Arrow", "Nathaniel Flint", "Scroop"],
     "matchingIds": [572, 632, 652, 1331, 1395, 1402, 1421]
+  },
+  "turningred": {
+    "displayNames": {
+      "de": "Rot",
+      "en": "Turning Red",
+      "fr": "Alerte rouge",
+      "it": "Red"
+    }
   },
   "up": {
     "displayNames": {

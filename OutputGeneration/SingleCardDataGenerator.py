@@ -15,9 +15,29 @@ from util import CardUtil, IdentifierParser, Language, LorcanaSymbols
 _logger = logging.getLogger("LorcanaJSON")
 _CARD_CODE_LOOKUP = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 _KEYWORD_REGEX = re.compile(r"(?:^|\n)([A-ZÀ][^.]+)(?=\s\([A-Z])")
-_KEYWORD_REGEX_WITHOUT_REMINDER = re.compile(r"^([A-ZÀ][^ ]{2,}|À)( ([dl]['’])?[A-Zasu][^ ]{2,})?( \d+)?( .)?$")
+_KEYWORD_REGEX_WITHOUT_REMINDER = re.compile(r"^([A-ZÀ][^ ]{2,}|À)( ([dl]['’])?[A-Zasu][^ ]{2,})?( \+?\d+)?( .)?$")
 _ABILITY_TYPE_CORRECTION_FIELD_TO_ABILITY_TYPE: Dict[str, str] = {"_forceAbilityIndexToActivated": "activated", "_forceAbilityIndexToKeyword": "keyword", "_forceAbilityIndexToStatic": "static", "_forceAbilityIndexToTriggered": "triggered"}
 _SYMBOL_LETTER_REGEX = re.compile(f"[{''.join(LorcanaSymbols.LETTER_TO_SYMBOL.values())}]")
+
+# Most subtypes ae one word, but some are two. Make sure they're joined into one subtype, instead of split over two
+_DOUBLE_WORD_SUBTYPES: Dict[Language.Language, Dict[str, str]] = {
+	Language.ENGLISH: {
+		"Red": "Panda",
+		"Seven": "Dwarfs",
+	},
+	Language.FRENCH: {
+		"Panda": "roux",
+		"Sept": "Nains"
+	},
+	Language.GERMAN: {
+		"Roter": "Panda",
+		"Sieben": "Zwerge"
+	},
+	Language.ITALIAN: {
+		"Panda": "Rosso",
+		"Sette": "Nani"
+	}
+}
 
 
 def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler: ExternalLinksHandler, relatedCards: RelatedCards, cardDataCorrections: Dict, storyParser: StoryParser,
@@ -48,6 +68,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 	# Set the grouping ('P1', 'D23', etc) for promo cards
 	if parsedIdentifier and parsedIdentifier.isPromo():
 		outputCard["promoGrouping"] = parsedIdentifier.grouping
+		outputCard["rarity"] = GlobalConfig.translation.SPECIAL
 
 	_parseNameFields(inputCard, outputCard, ocrResult)
 
@@ -250,7 +271,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 	if ocrResult.abilityLabels:
 		inputAbilityNames: Optional[List[str]] = None
 		for abilityIndex in range(len(ocrResult.abilityLabels)):
-			abilityName = TextCorrection.correctPunctuation(ocrResult.abilityLabels[abilityIndex].replace("''", "'").replace("ß", "ẞ")).lstrip("-+*_.… ").rstrip(" %:").upper()
+			abilityName = TextCorrection.correctPunctuation(ocrResult.abilityLabels[abilityIndex].replace("''", "'").replace("ß", "ẞ")).lstrip("-+*_.… ").rstrip(" %:\\").upper()
 			originalAbilityName = abilityName
 			abilityName = re.sub(r"^\d ", "", abilityName)
 			abilityName = re.sub(r"(?<=\w) ?[.;7|>»”©(\"=~_]{1,2}$", "", abilityName)
@@ -291,7 +312,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 					#  Also correct ellipses to not have spaces inbetween the periods; and sometimes ability names have double spaces so correct those to single ones
 					inputAbilityNames: List[str] = [re.sub(r" ?\.\s\.\s\.\s?", "...", s.replace("  ", " ").upper()) for s in re.findall(r"\\([^\\]+)\\", inputCard["rules_text"])]
 				if abilityIndex >= len(inputAbilityNames):
-					_logger.error(f"Trying to read input ability name index {abilityIndex} but there are only {len(inputAbilityNames)} names, in card {CardUtil.createCardIdentifier(outputCard)}")
+					_logger.error(f"Trying to read input ability name index {abilityIndex} but there are only {len(inputAbilityNames)} names, while {len(ocrResult.abilityLabels)} were expected, in card {CardUtil.createCardIdentifier(outputCard)}")
 				else:
 					inputAbilityName: str = inputAbilityNames[abilityIndex]
 					characterMismatchCount: int = 0
@@ -354,7 +375,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 	forceAbilityTypeAtIndex: Dict[int, str] = {}  # index to ability type
 	newlineAfterLabelIndex: int = -1
 	moveAbilityAtIndexToIndex: Optional[List[int, int]] = None
-	skipFullTextSectionMergeAtIndex: int = -1
+	skipFullTextSectionMergeAtIndex: List[int] = []
 	if cardDataCorrections:
 		if cardDataCorrections.pop("_moveKeywordsLast", False):
 			if "abilities" not in outputCard or "effect" not in outputCard["abilities"][-1]:
@@ -408,7 +429,9 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 		mergeEffectIndexWithPrevious: int = cardDataCorrections.pop("_mergeEffectIndexWithPrevious", -1)
 		moveAbilityAtIndexToIndex: Optional[List[Union[int, int]]] = cardDataCorrections.pop("_moveAbilityAtIndexToIndex", None)
 		newlineAfterLabelIndex: int = cardDataCorrections.pop("_newlineAfterLabelIndex", -1)
-		skipFullTextSectionMergeAtIndex: int = cardDataCorrections.pop("_skipFullTextSectionMergeAtIndex", -1)
+		skipFullTextSectionMergeAtIndex: List[int] = cardDataCorrections.pop("_skipFullTextSectionMergeAtIndex", [])
+		if isinstance(skipFullTextSectionMergeAtIndex, int):
+			skipFullTextSectionMergeAtIndex = [skipFullTextSectionMergeAtIndex]
 		splitAbilityNameAtIndex: Optional[List[Union[int, str]]] = cardDataCorrections.pop("_splitAbilityNameAtIndex", None)
 		for fieldName, correctionList in cardDataCorrections.items():
 			TextCorrection.correctCardFieldFromList(outputCard, fieldName, correctionList)
@@ -593,7 +616,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 					ability["costsText"] = ability["effect"][:activatedAbilityMatch.start(1)]
 					ability["effect"] = ability["effect"][activatedAbilityMatch.end(3):]
 				elif GlobalConfig.language == Language.ENGLISH:
-					if re.match("Once (during your|per) turn, you may", ability["effect"]):
+					if re.match(r"Once\s(during\syour|per)\sturn,\syou\smay", ability["effect"]):
 						ability["type"] = "activated"
 					elif (ability["effect"].startswith("At the start of") or ability["effect"].startswith("At the end of") or re.search(r"(^W|,[ \n]w)hen(ever)?[ \n]", ability["effect"])
 							or re.search("when (he|she|it|they) enters play", ability["effect"])):
@@ -705,7 +728,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 		previousAbilityWasKeywordWithoutReminder: bool = False
 		for abilityIndex, ability in enumerate(outputCard["abilities"]):  # type: Dict[str, str]
 			# Some cards have multiple keyword abilities on one line without reminder text. They'll be stored as separate abilities, but they should be in one section
-			if abilityIndex != skipFullTextSectionMergeAtIndex and ability["type"] == "keyword" and _KEYWORD_REGEX_WITHOUT_REMINDER.match(ability["fullText"]):
+			if abilityIndex not in skipFullTextSectionMergeAtIndex and ability["type"] == "keyword" and _KEYWORD_REGEX_WITHOUT_REMINDER.match(ability["fullText"]):
 				if previousAbilityWasKeywordWithoutReminder:
 					# Add this keyword to the previous section, since that's how it's on the card
 					fullTextSections[-1] += ", " + ability["fullText"]
@@ -713,7 +736,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 					previousAbilityWasKeywordWithoutReminder = True
 					fullTextSections.append(ability["fullText"])
 			else:
-				if abilityIndex == skipFullTextSectionMergeAtIndex:
+				if abilityIndex in skipFullTextSectionMergeAtIndex:
 					_logger.debug(f"Skipping joining keyword ability at index {abilityIndex} with the previous line in card {CardUtil.createCardIdentifier(outputCard)}")
 				fullTextSections.append(ability["fullText"])
 	if "effects" in outputCard:
@@ -893,19 +916,13 @@ def _parseSubtypes(subtypesText: Optional[str], outputCard: Dict):
 	subtypes: List[str] = re.sub(fr"[^A-Za-zàäèéöü{LorcanaSymbols.SEPARATOR} ]", "", subtypesText).split(LorcanaSymbols.SEPARATOR_STRING)
 	if "ltem" in subtypes:
 		subtypes[subtypes.index("ltem")] = "Item"
-	# 'Seven Dwarves' is a subtype, but it might get split up into two types. Turn it back into one subtype
-	sevenDwarvesCheckTypes = None
-	if GlobalConfig.language == Language.ENGLISH:
-		sevenDwarvesCheckTypes = ("Seven", "Dwarfs")
-	elif GlobalConfig.language == Language.FRENCH:
-		sevenDwarvesCheckTypes = ("Sept", "Nains")
-	elif GlobalConfig.language == Language.GERMAN:
-		sevenDwarvesCheckTypes = ("Sieben", "Zwerge")
-	elif GlobalConfig.language == Language.ITALIAN:
-		sevenDwarvesCheckTypes = ("Sette", "Nani")
-	if sevenDwarvesCheckTypes and sevenDwarvesCheckTypes[0] in subtypes and sevenDwarvesCheckTypes[1] in subtypes:
-		subtypes.remove(sevenDwarvesCheckTypes[1])
-		subtypes[subtypes.index(sevenDwarvesCheckTypes[0])] = " ".join(sevenDwarvesCheckTypes)
+	# Some subtypes consist of two words ('Seven Dwarfs', 'Red Panda') but it might get split up into two types. Turn it back into one subtype
+	if GlobalConfig.language in _DOUBLE_WORD_SUBTYPES:
+		for firstWord, secondWord in _DOUBLE_WORD_SUBTYPES[GlobalConfig.language].items():
+			if firstWord in subtypes and secondWord in subtypes:
+				subtypes.remove(secondWord)
+				subtypes[subtypes.index(firstWord)] += " " + secondWord
+
 	for subtypeIndex in range(len(subtypes) - 1, -1, -1):
 		subtype = subtypes[subtypeIndex]
 		if subtype == "Fantme":
