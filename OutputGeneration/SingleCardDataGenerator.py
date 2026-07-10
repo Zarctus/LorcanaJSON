@@ -15,7 +15,7 @@ from util import CardUtil, IdentifierParser, Language, LorcanaSymbols
 _logger = logging.getLogger("LorcanaJSON")
 _CARD_CODE_LOOKUP = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 _KEYWORD_REGEX = re.compile(r"(?:^|\n)([A-ZÀ][^.]+)(?=\s\([A-Z])")
-_KEYWORD_REGEX_WITHOUT_REMINDER = re.compile(r"^([A-ZÀ][^ ]{2,}|À)( ([dl]['’])?[A-Zasu][^ ]{2,})?( \+?\d+)?( .)?$")
+_KEYWORD_REGEX_WITHOUT_REMINDER = re.compile(r"^([A-ZÀ][^ ]{2,}|À)( ([dl]['’]|de )?[A-Zastu][^ ]{2,})?( \+?\d+)?( .)?$")
 _ABILITY_TYPE_CORRECTION_FIELD_TO_ABILITY_TYPE: Dict[str, str] = {"_forceAbilityIndexToActivated": "activated", "_forceAbilityIndexToKeyword": "keyword", "_forceAbilityIndexToStatic": "static", "_forceAbilityIndexToTriggered": "triggered"}
 _SYMBOL_LETTER_REGEX = re.compile(f"[{''.join(LorcanaSymbols.LETTER_TO_SYMBOL.values())}]")
 
@@ -262,6 +262,9 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 					for keywordLine in keywordLines:
 						abilities.append({"type": "keyword", "fullText": TextCorrection.correctText(keywordLine.rstrip())})
 						# These entries will get more fleshed out after the corrections (if any) are applied, to prevent having to correct multiple fields
+						if outputCard["id"] >= 1937 and GlobalConfig.translation.shift in keywordLine and abilities[-1]["fullText"][-1].isnumeric():
+							# Starting from Set 9, Shift abilities that cost ink should end with the ink symbol. Add it if it's missing
+							abilities[-1]["fullText"] += " " + LorcanaSymbols.INK
 				elif len(remainingTextLine) > 10:
 					# Since this isn't a named or keyword ability, assume it's a one-off effect
 					effects.append(remainingTextLine)
@@ -880,6 +883,12 @@ def _parseNameFields(inputCard: Dict, outputCard: Dict, ocrResult: OcrResult):
 	outputCard["simpleName"] = re.sub(r"[!.,…?“”\"]", "", outputCard["simpleName"].lower()).rstrip()
 	for replacementChar, charsToReplace in {"a": "[àâäā]", "c": "ç", "e": "[èêé]", "i": "[îïí]", "o": "[ôö]", "u": "[ùûü]", "oe": "œ", "ss": "ß"}.items():
 		outputCard["simpleName"] = re.sub(charsToReplace, replacementChar, outputCard["simpleName"])
+	if outputCard["type"] == GlobalConfig.translation.Character:
+		# Set 13 introduces Team cards, which have two names on them (f.i. "Mickey Mouse & Minnie Mouse"). These also count as a card named "Mickey Mouse" and named "Minnie Mouse"
+		# To make that easier to process, add a separate field that lists all the names this card qualifies as. (Italian uses ' e ' instead of ' & ' so check for that too)
+		nameSeparator = " e " if GlobalConfig.language == Language.ITALIAN else " & "
+		if nameSeparator in outputCard["name"]:
+			outputCard["names"] = sorted(outputCard["name"].split(nameSeparator))
 
 def _parseRelatedCards(relatedCards: RelatedCards, parsedIdentifier: IdentifierParser.Identifier, outputCard: Dict):
 	otherRelatedCards = relatedCards.getOtherRelatedCards(outputCard["setCode"], outputCard["id"])
@@ -925,7 +934,9 @@ def _parseSubtypes(subtypesText: Optional[str], outputCard: Dict):
 
 	for subtypeIndex in range(len(subtypes) - 1, -1, -1):
 		subtype = subtypes[subtypeIndex]
-		if subtype == "Fantme":
+		if subtype == "Equipe" or subtype == "quipe":
+			subtypes[subtypeIndex] = "Équipe"
+		elif subtype == "Fantme":
 			subtypes[subtypeIndex] = "Fantôme"
 		elif GlobalConfig.language in (Language.ENGLISH, Language.FRENCH) and subtype != "Floodborn" and re.match(r"^[EF][il][aeo][aeo]d[^b]?b?[^b]?[aeo](r[an][es+-]?|m)$", subtype):
 			_logger.debug(f"Correcting '{subtype}' to 'Floodborn'")

@@ -35,6 +35,7 @@ class ParseSettings:
 	labelMaskColor: Tuple[int, int, int] = _WHITE
 	cardTextHasOutline: bool = False  # Iconic cards don't just have one card text color, but they have dark text with a white outline, which confuses parsing. Set this to True for those cards to floodfill and fix that problem
 	typeImageTextColorOverride: Optional[ImageArea.TextColour] = None  # If a different type image text color should be used than default for the card layout, set it here
+	typeImageRightOffset: int = 0  # Positive values make the types subimage wider to the right, negative values make it shorter to the left
 	parseIdentifier: bool = False
 	getIdentifierFromCard: bool = False
 	forceArtistTextColor: Optional[ImageArea.TextColour] = None
@@ -70,7 +71,8 @@ _PARSE_SETTINGS_FOR_ENCHANTED_BY_SET: Dict[str, ParseSettings] = {
 	"10": dataclasses.replace(_DEFAULT_NEW_ENCHANTED_PARSE_SETTINGS, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_WHITE_ABILITY_TEXT, thresholdTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND, labelTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND),
 	"11": dataclasses.replace(_DEFAULT_NEW_ENCHANTED_PARSE_SETTINGS, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_WHITE_ABILITY_TEXT, thresholdTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND, labelTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND),
 	"12": dataclasses.replace(_DEFAULT_NEW_ENCHANTED_PARSE_SETTINGS, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_WHITE_ABILITY_TEXT, thresholdTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND, labelTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND),
-	"13": dataclasses.replace(_DEFAULT_NEW_ENCHANTED_PARSE_SETTINGS, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_WHITE_ABILITY_TEXT, thresholdTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND, labelTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND),
+	"13": dataclasses.replace(_DEFAULT_NEW_ENCHANTED_PARSE_SETTINGS, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_WHITE_ABILITY_TEXT, thresholdTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND, labelTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND,
+							  typeImageTextColorOverride=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND, typeImageRightOffset=60),
 }
 _PARSE_SETTINGS_BY_SET: Dict[str, ParseSettings] = {
 	"Q1": ParseSettings(labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_WHITE_ABILITY_TEXT, thresholdTextColor=ImageArea.TEXT_COLOUR_WHITE, labelMaskColor=_BLACK),
@@ -158,6 +160,7 @@ _PARSE_SETTINGS_BY_ID: Dict[int, ParseSettings] = {
 	2444: _PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["10"],
 	2445: _PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["10"],
 	2450: dataclasses.replace(_PARSE_SETTINGS_BY_GROUPING["P3"], labelStartThreshold=100, labelEndThreshold=170, labelTextColor=ImageArea.TEXT_COLOUR_MIDDLE, textboxLeftOffset=10, hasCardTextOverride=True),
+	2459: dataclasses.replace(_DEFAULT_PARSE_SETTINGS, textboxTopOffset=150, textboxBottomOffset=-70),
 	2461: dataclasses.replace(_PARSE_SETTINGS_BY_GROUPING["P3"], labelStartThreshold=100, labelEndThreshold=170, labelTextColor=ImageArea.TEXT_COLOUR_MIDDLE, textboxLeftOffset=10),
 	2462: dataclasses.replace(_PARSE_SETTINGS_BY_GROUPING["P3"], labelStartThreshold=100, labelEndThreshold=170, labelTextColor=ImageArea.TEXT_COLOUR_MIDDLE, textboxLeftOffset=10),
 	2669: dataclasses.replace(_DEFAULT_EPIC_PARSE_SETTINGS, labelStartThreshold=180, labelEndThreshold=185),
@@ -198,6 +201,16 @@ _PARSE_SETTINGS_BY_ID: Dict[int, ParseSettings] = {
 	2968: dataclasses.replace(_DEFAULT_PARSE_SETTINGS, textboxLeftOffset=40),
 	2969: dataclasses.replace(_DEFAULT_PARSE_SETTINGS, textboxLeftOffset=40),
 	2971: _DEFAULT_EPIC_PARSE_SETTINGS,
+	3204: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["13"], characterCardLayout=CardLayout.NEW_ENCHANTED_CHARACTER_SMALL_TEXTBOX),
+	3207: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["13"], characterCardLayout=CardLayout.NEW_ENCHANTED_CHARACTER_SMALL_TEXTBOX),
+	3211: dataclasses.replace(_PARSE_SETTINGS_FOR_ENCHANTED_BY_SET["13"], textboxLeftOffset=-20, thresholdTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND),
+	3215: dataclasses.replace(_DEFAULT_PARSE_SETTINGS, textboxTopOffset=210, thresholdTextColor=ImageArea.TEXT_COLOUR_WHITE, labelParsingMethod=LABEL_PARSING_METHODS.NONE, cardTextHasOutline=True),
+	3216: dataclasses.replace(_DEFAULT_PARSE_SETTINGS, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_WHITE_ABILITY_TEXT, cardTextHasOutline=True, textboxTopOffset=95),
+	3217: dataclasses.replace(_DEFAULT_PARSE_SETTINGS, labelIsDarkerThanBackground=False, thresholdTextColor=ImageArea.TEXT_COLOUR_WHITE, labelMaskColor=_BLACK, textboxBottomOffset=-80),
+	3218: dataclasses.replace(_DEFAULT_PARSE_SETTINGS, labelIsDarkerThanBackground=False, thresholdTextColor=ImageArea.TEXT_COLOUR_WHITE, labelMaskColor=_BLACK, textboxBottomOffset=-80),
+	3219: dataclasses.replace(_DEFAULT_PARSE_SETTINGS, labelIsDarkerThanBackground=False, thresholdTextColor=ImageArea.TEXT_COLOUR_WHITE, labelMaskColor=_BLACK, textboxBottomOffset=-80),
+	3225: dataclasses.replace(_DEFAULT_PARSE_SETTINGS, textboxLeftOffset=10),
+	3226: dataclasses.replace(_DEFAULT_PARSE_SETTINGS, textboxLeftOffset=10, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_BY_LINES),
 }
 
 def getParseSetingsById(cardId: int) -> Optional[ParseSettings]:

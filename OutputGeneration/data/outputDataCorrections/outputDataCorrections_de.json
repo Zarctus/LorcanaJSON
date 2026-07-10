@@ -1180,6 +1180,15 @@
       "–"
     ]
   },
+  "1213": {
+    "names": [
+      null,
+      [
+        "Chap",
+        "Chip"
+      ]
+    ]
+  },
   "1222": {
     "flavorText": [
       "mc",
@@ -1293,6 +1302,13 @@
       " in ",
       "Ii",
       "Ti"
+    ],
+    "names": [
+      null,
+      [
+        "Chap",
+        "Chip"
+      ]
     ]
   },
   "1409": {
@@ -2512,8 +2528,6 @@
   },
   "2696": {
     "abilities": [
-      "4$",
-      "4 ⬡",
       "3 ¤",
       "3 ◊"
     ]
@@ -2838,12 +2852,6 @@
     "flavorText": [
       "^.+$",
       "[auf Atlanter] Betretet die Höhle des Leviathans."
-    ]
-  },
-  "2875": {
-    "abilities": [
-      "6$",
-      "6 ⬡"
     ]
   },
   "2877": {

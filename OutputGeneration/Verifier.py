@@ -168,6 +168,13 @@ def compareInputToOutput(cardIdsToVerify: Optional[List[int]]):
 			cardDifferencesCount += 1
 			print(f"WARNING: {outputCard['fullName']} (ID {outputCard['id']}) does not have a valid story set")
 
+		# Check if all historic data has a used-until date
+		if "historicData" in outputCard:
+			for historicEntry in outputCard["historicData"]:
+				if "usedUntil" not in historicEntry:
+					cardDifferencesCount += 1
+					print(f"WARNING: {outputCard['fullName']} (ID {outputCard['id']} has a historic entry without a 'usedUntil'-date set")
+
 		# Check if the whitespace is correct
 		for symbol in LorcanaSymbols.ALL_SYMBOLS:
 			# Symbols should have whitespace around them
@@ -188,8 +195,8 @@ def compareInputToOutput(cardIdsToVerify: Optional[List[int]]):
 				logging.warning(f"ID {outputCard['id']} trouvé dans les cartes {GlobalConfig.language.englishName} mais pas dans les cartes anglaises, impossible de comparer")
 				continue
 			cardId = outputCard["id"]
-			for fieldname in ('abilities', 'artistsText', 'enchantedId', 'cost', 'effects', 'fullTextSections', 'inkwell', 'keywordAbilities', 'lore',
-							  'maxCardsInDeck', 'moveCost', 'nonEnchantedId', 'nonPromoId', 'number', 'strength', 'subtypes', 'variant', 'variandIds', 'willPower'):
+			for fieldname in ('abilities', 'artistsText', 'enchantedId', 'cost', 'effects', 'fullTextSections', 'inkwell', 'keywordAbilities', 'lore', 'maxCardsInDeck',
+							  'moveCost', 'names', 'nonEnchantedId', 'nonPromoId', 'number', 'strength', 'subtypes', 'variant', 'variandIds', 'willPower'):
 				if fieldname not in outputCard and fieldname not in englishCard:
 					continue
 				if fieldname in outputCard and fieldname not in englishCard:
