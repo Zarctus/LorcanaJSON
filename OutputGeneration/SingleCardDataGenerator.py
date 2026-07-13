@@ -197,6 +197,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 				flavorText = flavorText[1:]
 			if not flavorText.startswith(GlobalConfig.language.openDoubleQuotemark):
 				flavorText = GlobalConfig.language.openDoubleQuotemark + flavorText
+		flavorText = re.sub("(Waterno(o|us)se )I[Il]l?\\b", "\\1III", flavorText)
 		# Tesseract often sees the italic 'T' as an 'I', especially at the start of a word. Fix that
 		if GlobalConfig.language == Language.ENGLISH and "I" in flavorText:
 			flavorText = re.sub(r"(^|\W)I(?=[ehiow]\w)", r"\1T", flavorText)
@@ -635,7 +636,8 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 				elif GlobalConfig.language == Language.GERMAN:
 					if re.match(r"Einmal\s(pro|während\sdeines)\sZug(es)?,?\sdarfst\sdu", ability["effect"]):
 						ability["type"] = "activated"
-					elif (re.match(r"Wenn(\sdu)?\sdiese", ability["effect"]) or re.match(r"Wenn\seiner\sdeiner\sCharaktere", ability["effect"]) or re.search(r"(^J|\bj)edes\sMal\b", ability["effect"]) or
+					elif (re.match(r"Wenn(\sdu)?\sdiese", ability["effect"]) or re.match(r"Wenn\seiner\sdeiner\sCharaktere", ability["effect"]) or
+						  re.match(r"Wenn\sdu\seinen\sCharakter\sauf\sdiesen\sCharakter", ability["effect"]) or re.search(r"(^J|\bj)edes\sMal\b", ability["effect"]) or
 						  re.match(r"(Ein|Zwei)mal\swährend\sdeines\sZuges\b", ability["effect"]) or ability["effect"].startswith("Einmal pro Zug, wenn") or
 						  re.search(r"(^Z|\bz)u\sBeginn\s(deines|von\s\w+)\sZug", ability["effect"]) or re.match(r"Am\sEnde\s(deines|des)\sZuges", ability["effect"]) or
 						  re.match(r"Falls\sdu\sGestaltwandel\sbenutzt\shas", ability["effect"]) or "wenn du eine Karte ziehst" in ability["effect"] or
@@ -645,7 +647,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 				elif GlobalConfig.language == Language.ITALIAN:
 					if re.match(r"Una\svolta\s(durante\sil\stuo|per)\sturno,\spuoi\b", ability["effect"]):
 						ability["type"] = "activated"
-					elif (re.match(r"Quando\sgiochi", ability["effect"]) or re.search(r"(^Q|\sq)uando\s(questo|sposti)", ability["effect"]) or re.search(r"(^O|\so)gni\svolta\sche", ability["effect"]) or
+					elif (re.match(r"Quando\sgiochi", ability["effect"]) or re.search(r"(^Q|\sq)uando\s(questo|scarti|sposti|trasformi)", ability["effect"]) or re.search(r"(^O|\so)gni\svolta\sche", ability["effect"]) or
 						  re.match(r"All'inizio\sdel\stuo\sturno", ability["effect"]) or re.match(r"Alla\sfine\sdel(\stuo)?\sturno", ability["effect"]) or
 						  re.search(r"quando\saggiungi\suna\scarta\sal\stuo\scalamaio", ability["effect"]) or re.match(r"Quando\sun\savversario", ability["effect"])):
 						ability["type"] = "triggered"
