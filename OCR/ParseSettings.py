@@ -16,12 +16,12 @@ class LABEL_PARSING_METHODS(StrEnum):
 	FALLBACK_BY_LINES = auto()
 	NONE = auto()
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class ParseSettings:
 	# Layouts to use. Set these to None here and actually set them to the defaults in __post_init__ since you can't assign mutables at class-level in a dataclass
-	cardLayout: CardLayout.CardLayout = None
-	characterCardLayout: CardLayout.CardLayout = None
-	locationCardLayout: CardLayout.CardLayout = None
+	cardLayout: CardLayout.CardLayout = CardLayout.DEFAULT
+	characterCardLayout: CardLayout.CardLayout = CardLayout.DEFAULT_CHARACTER
+	locationCardLayout: CardLayout.CardLayout = CardLayout.DEFAULT_LOCATION
 	textboxLeftOffset: int = 0  # Shrinks the textbox from the left by this many pixels
 	textboxRightOffset: int = 0  # Shrinks the textbox from the right by this many pixels
 	textboxTopOffset: int = 0  # A positive number here starts the textbox image further down; this value gets added to the y-value from the CardLayout
@@ -39,20 +39,12 @@ class ParseSettings:
 	parseIdentifier: bool = False
 	getIdentifierFromCard: bool = False
 	forceArtistTextColor: Optional[ImageArea.TextColour] = None
+	lineParsingMaxGap: int = 3  # The line parsing fallback method has a max distance between horizontally-adjacent lines to join them. This setting can override that limit
 	# Force some checks that could fail or be wrong on some cards. 'None' means they're not overridden, setting them to 'True' or 'False' uses those values instead of whatever is normally determined
 	hasCardTextOverride: Optional[bool] = None
 	hasFlavorTextOverride: Optional[bool] = None
 	isLocationOverride: Optional[bool] = None
 	isItemOverride: Optional[bool] = None
-
-	def __post_init__(self):
-		# Set layouts to defaults here, because we can't set them on class-level since they can't be mutable
-		if self.cardLayout is None:
-			self.cardLayout = CardLayout.DEFAULT
-		if self.characterCardLayout is None:
-			self.characterCardLayout = CardLayout.DEFAULT_CHARACTER
-		if self.locationCardLayout is None:
-			self.locationCardLayout = CardLayout.DEFAULT_LOCATION
 
 
 _DEFAULT_PARSE_SETTINGS = ParseSettings()
@@ -84,6 +76,7 @@ _PARSE_SETTINGS_BY_GROUPING: Dict[str, ParseSettings] = {
 	"P1": ParseSettings(getIdentifierFromCard=True),
 	"P3": dataclasses.replace(_DEFAULT_PARSE_SETTINGS, labelStartThreshold=175, labelEndThreshold=180, labelTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND),
 	"PD1": dataclasses.replace(_DEFAULT_PARSE_SETTINGS, labelIsDarkerThanBackground=False, thresholdTextColor=ImageArea.TEXT_COLOUR_WHITE, labelMaskColor=_BLACK),
+	"CC1": dataclasses.replace(_DEFAULT_NEW_ENCHANTED_PARSE_SETTINGS, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_BY_LINES, labelTextColor=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND),
 }
 
 _PARSE_SETTINGS_BY_ID: Dict[int, ParseSettings] = {
@@ -211,6 +204,8 @@ _PARSE_SETTINGS_BY_ID: Dict[int, ParseSettings] = {
 	3219: dataclasses.replace(_DEFAULT_PARSE_SETTINGS, labelIsDarkerThanBackground=False, thresholdTextColor=ImageArea.TEXT_COLOUR_WHITE, labelMaskColor=_BLACK, textboxBottomOffset=-80),
 	3225: dataclasses.replace(_DEFAULT_PARSE_SETTINGS, textboxLeftOffset=10),
 	3226: dataclasses.replace(_DEFAULT_PARSE_SETTINGS, textboxLeftOffset=10, labelParsingMethod=LABEL_PARSING_METHODS.FALLBACK_BY_LINES),
+	3237: dataclasses.replace(_PARSE_SETTINGS_BY_GROUPING["CC1"], typeImageTextColorOverride=ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND),
+	3238: dataclasses.replace(_PARSE_SETTINGS_BY_GROUPING["CC1"], characterCardLayout=CardLayout.NEW_ENCHANTED_CHARACTER_SMALL_TEXTBOX, lineParsingMaxGap=7, textboxTopOffset=-60),
 }
 
 def getParseSetingsById(cardId: int) -> Optional[ParseSettings]:

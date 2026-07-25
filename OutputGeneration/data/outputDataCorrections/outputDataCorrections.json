@@ -198,21 +198,24 @@
   "2879": {
     "_effectAtIndexIsAbility": 0
   },
-  "2899": {
-    "externalLinks": [
-      "-V9\\?",
-      "-V9-V1?"
+  "3176": {
+    "foilTypes": [
+      null,
+      "Silver"
     ]
   },
-  "2905": {
-    "externalLinks": [
-      "-V2",
-      ""
+  "3177": {
+    "foilTypes": [
+      null,
+      "Silver"
     ]
   },
   "3178": {
-    "_forceAbilityIndexToTriggered": 0
-  },
+    "_forceAbilityIndexToTriggered": 0,
+    "foilTypes": [
+      null,
+      "Silver"
+    ]  },
   "3198": {
     "_skipFullTextSectionMergeAtIndex": 1
   },

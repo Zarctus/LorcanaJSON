@@ -127,9 +127,14 @@ class ImageParser:
 		if cardType:
 			isCharacter = cardType == GlobalConfig.translation.Character
 		# First determine the card (sub)type
-		typesImageArea = (parseSettings.locationCardLayout if isLocation else parseSettings.cardLayout).types
-		typesImage = self._getSubImage(greyCardImage, typesImageArea, offsetTop=parseSettings.textboxTopOffset, offsetBottom=parseSettings.textboxTopOffset, offsetRight=parseSettings.typeImageRightOffset)
-		typesImage = self._convertToThresholdImage(typesImage, parseSettings.typeImageTextColorOverride if parseSettings.typeImageTextColorOverride else typesImageArea.textColour)
+		if isLocation:
+			cardLayout = parseSettings.locationCardLayout
+		elif isCharacter:
+			cardLayout = parseSettings.characterCardLayout
+		else:
+			cardLayout = parseSettings.cardLayout
+		typesImage = self._getSubImage(greyCardImage, cardLayout.types, offsetTop=parseSettings.textboxTopOffset, offsetBottom=parseSettings.textboxTopOffset, offsetRight=parseSettings.typeImageRightOffset)
+		typesImage = self._convertToThresholdImage(typesImage, parseSettings.typeImageTextColorOverride if parseSettings.typeImageTextColorOverride else cardLayout.types.textColour)
 		typesImageText = self._imageToString(typesImage).strip("\"'‘-1|{} ")
 		if "\n" in typesImageText:
 			self._logger.debug(f"Removing part before newline character from types image text {typesImageText!r}")
@@ -238,12 +243,12 @@ class ImageParser:
 			elif parseSettings.labelParsingMethod == ParseSettings.LABEL_PARSING_METHODS.FALLBACK_BY_LINES:
 				# Find labels by trying to find their top and/or bottom horizontal edge
 				textboxEdgeDetectedImage = cv2.Canny(greyTextboxImage, 50, 200)
-				lines = cv2.HoughLinesP(textboxEdgeDetectedImage, 1, math.pi / 180, 150, minLineLength=125, maxLineGap=3)
+				lines = cv2.HoughLinesP(textboxEdgeDetectedImage, 1, math.pi / 180, 150, minLineLength=125, maxLineGap=parseSettings.lineParsingMaxGap)
 				if lines is None:
-					self._logger.debug("Not found any abiltylabel lines, trying a shorter minimum length")
-					lines = cv2.HoughLinesP(textboxEdgeDetectedImage, 1, math.pi / 180, 150, minLineLength=100, maxLineGap=3)
+					self._logger.debug(f"Not found any abiltylabel lines in card {cardId}, trying a shorter minimum length")
+					lines = cv2.HoughLinesP(textboxEdgeDetectedImage, 1, math.pi / 180, 150, minLineLength=100, maxLineGap=parseSettings.lineParsingMaxGap)
 				if lines is None:
-					self._logger.warning(f"Expected card to have lines but none were found in card image '{imagePath}'")
+					self._logger.debug(f"No lines found in card {cardId}")
 				else:
 					# Sort lines from top to bottom
 					lines = sorted(lines, key=lambda l: l[0][1])
@@ -259,7 +264,7 @@ class ImageParser:
 						lineRightX = line[0][2]
 						lineRightY = line[0][3]
 						if lineRightY < 10:
-							self._logger.warning(f"Found line at x={lineRightX} y={lineRightY} for card ID {cardId} but that is too close to the top, skipping")
+							self._logger.debug(f"Found line at x={lineRightX} y={lineRightY} for card ID {cardId} but that is too close to the top, skipping")
 							continue
 						if hasFlavorText:
 							lineLeftX = line[0][0]
