@@ -165,6 +165,8 @@ def _checkForUpdates(fieldsToIgnore: Optional[List[str]] = None) -> bool:
 			_infoOrPrint(logger, f"{len(updateCheckResult.removedCards):,} removed cards: {updateCheckResult.removedCards}")
 		if updateCheckResult.newCardFields:
 			_infoOrPrint(logger, f"{len(updateCheckResult.newCardFields):,} new card fields: {updateCheckResult.newCardFields}")
+		if updateCheckResult.newCardVariantFields:
+			_infoOrPrint(logger, f"{len(updateCheckResult.newCardVariantFields):,} new card variant fields: {updateCheckResult.newCardVariantFields}")
 		if updateCheckResult.possibleChangedImages:
 			_infoOrPrint(logger, f"{len(updateCheckResult.possibleChangedImages):,} possible image changes:")
 			for possibleImageChange in updateCheckResult.possibleChangedImages:
@@ -173,6 +175,10 @@ def _checkForUpdates(fieldsToIgnore: Optional[List[str]] = None) -> bool:
 			_infoOrPrint(logger, f"{len(updateCheckResult.newSets)} new sets: {updateCheckResult.newSets}")
 		if updateCheckResult.appVersionChange:
 			_infoOrPrint(logger, f"Official app version changed from {updateCheckResult.appVersionChange[0]} to {updateCheckResult.appVersionChange[1]}")
+		if updateCheckResult.newTopLevelFields:
+			_infoOrPrint(logger, f"{len(updateCheckResult.newTopLevelFields):,} new top-level fields were added to the input data: {'; '.join(updateCheckResult.newTopLevelFields)}")
+		if updateCheckResult.removedTopLevelFields:
+			_infoOrPrint(logger, f"{len(updateCheckResult.removedTopLevelFields):,} top-level fields were removed to the input data: {'; '.join(updateCheckResult.removedTopLevelFields)}")
 		return True
 	else:
 		_infoOrPrint(logger, "No changes found")
@@ -245,7 +251,8 @@ if __name__ == '__main__':
 			cardCatalog = RavensburgerApiHandler.retrieveCardCatalog()
 			updateCheckResult: UpdateCheckResult = UpdateHandler.checkForNewCardData(cardCatalog, fieldsToIgnore=parsedArguments.ignoreFields)
 			if updateCheckResult.hasChanges():
-				_infoOrPrint(logger, f"Card catalog for language '{GlobalConfig.language.englishName}' was updated, saving ({updateCheckResult.listChangeCounts()})")
+				_infoOrPrint(logger, f"Card catalog for language '{GlobalConfig.language.englishName}' was updated, saving")
+				_infoOrPrint(logger, updateCheckResult.listChangeCounts())
 				ApiScrapingUtil.saveCardCatalog(cardCatalog)
 			else:
 				_infoOrPrint(logger, f"No new version of the card catalog for language '{GlobalConfig.language.englishName}' found")

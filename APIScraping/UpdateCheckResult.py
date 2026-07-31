@@ -15,9 +15,12 @@ class UpdateCheckResult:
 		self.changedCards: List[ChangedCard] = []
 		self.removedCards: List[BasicCard] = []
 		self.newCardFields: List[str] = []
+		self.newCardVariantFields: List[str] = []
 		self.possibleChangedImages: List[ChangedCard] = []
 		self.newSets: List[str] = []
 		self.appVersionChange: Optional[Tuple[str, str]] = None  # First Tuple entry is old app version number string, second entry is new
+		self.newTopLevelFields: List[str] = []  # Any newly added fields besides the cardlist, setlist, app version data, etc
+		self.removedTopLevelFields: List[str] = []  # Even though it's unlikely, also track possible removed top-level fields
 
 	def addNewCard(self, newCard: Dict, nameOverride: Optional[str] = None):
 		self.newCards.append(BasicCard(newCard, nameOverride))
@@ -43,13 +46,16 @@ class UpdateCheckResult:
 		"""
 		:return: True if there are any updates, False otherwise
 		"""
-		if self.newSets or self.appVersionChange or self.hasCardChanges():
+		if self.newSets or self.appVersionChange or self.newTopLevelFields or self.removedTopLevelFields or self.newCardFields or self.newCardVariantFields or self.hasCardChanges():
 			return True
 		return False
 
 	def listChangeCounts(self) -> str:
-		return (f"{len(self.newCards):,} new cards, {len(self.changedCards):,} changed cards, {len(self.removedCards):,} removed cards, {len(self.possibleChangedImages):,} possible image changes, "
-				f"{len(self.newCardFields):,} new card fields, {len(self.newSets)} new sets")
+		countStrings: List[str] = []
+		for fieldName, fieldValue in vars(self).items():
+			if isinstance(fieldValue, list) or isinstance(fieldValue, dict):
+				countStrings.append(f"{fieldName}: {len(fieldValue):,}")
+		return ", ".join(countStrings)
 
 
 class BasicCard:

@@ -12,16 +12,11 @@ _logger = logging.getLogger("LorcanaJSON")
 
 def retrieveCardCatalog() -> Dict[str, Any]:
 	# First get the token we need for the API, in the same way the official app does
-	tokenResponse = requests.post("https://sso.ravensburger.de/token",
-								  headers={
-									  # API key captured from the official Lorcana app
-									  "authorization": "Basic bG9yY2FuYS1hcGktcmVhZDpFdkJrMzJkQWtkMzludWt5QVNIMHc2X2FJcVZEcHpJenVrS0lxcDlBNXRlb2c5R3JkQ1JHMUFBaDVSendMdERkYlRpc2k3THJYWDl2Y0FkSTI4S096dw==",
-									  "content-type": "application/x-www-form-urlencoded",
-									  "user-agent": f"UnityPlayer/{DownloadUtil.UNITY_VERSION} (UnityWebRequest/1.0, libcurl/8.10.1-DEV)",
-									  "x-unity-version": DownloadUtil.UNITY_VERSION
-								  },
-								  data={"grant_type": "client_credentials"},
-								  timeout=10)
+	headers = DownloadUtil.DEFAULT_HEADERS.copy()
+	# API key captured from the official Lorcana app
+	headers["authorization"] = "Basic bG9yY2FuYS1hcGktcmVhZDpFdkJrMzJkQWtkMzludWt5QVNIMHc2X2FJcVZEcHpJenVrS0lxcDlBNXRlb2c5R3JkQ1JHMUFBaDVSendMdERkYlRpc2k3THJYWDl2Y0FkSTI4S096dw=="
+	headers["content-type"] = "application/x-www-form-urlencoded"
+	tokenResponse = requests.post("https://sso.ravensburger.de/token", headers=headers, data={"grant_type": "client_credentials"}, timeout=10)
 	if tokenResponse.status_code != 200:
 		raise ValueError(f"Non-success reply when retrieving token (status code {tokenResponse.status_code}): {tokenResponse.text=}")
 	tokenData = tokenResponse.json()
@@ -35,9 +30,9 @@ def retrieveCardCatalog() -> Dict[str, Any]:
 		raise ValueError(f"Invalid data in catalog response: {catalogResponse.text}")
 	return cardCatalog
 
-def retrieveAndSaveCardCatalog(pathToSaveTo: str = None) -> Dict[str, Any]:
+def retrieveAndSaveCardCatalog() -> Dict[str, Any]:
 	cardCatalog = retrieveCardCatalog()
-	ApiScrapingUtil.saveCardCatalog(cardCatalog, True, pathToSaveTo)
+	ApiScrapingUtil.saveCardCatalog(cardCatalog, True)
 	return cardCatalog
 
 def downloadImage(imageUrl: str, savePath: str, shouldOverwriteImage: bool = False) -> bool:
@@ -91,13 +86,11 @@ def downloadImagesIfUpdated(cardCatalog: Dict, cardIdsToCheck: List[int]) -> Lis
 				_logger.warning(f"Unable to find correct 2048-high image for card ID {cardId}, unable to check if image changed")
 	return cardIdsWithUpdatedImage
 
-def downloadImages(shouldOverwriteImages: bool = False, pathToCardCatalog: str = None):
+def downloadImages(shouldOverwriteImages: bool = False):
 	startTime = time.perf_counter()
-	if not pathToCardCatalog:
-		pathToCardCatalog = os.path.join("downloads", "json")
-	cardCatalogPath = os.path.join(pathToCardCatalog, f"carddata.{GlobalConfig.language.code}.json")
+	cardCatalogPath = os.path.join("downloads", "json", f"carddata.{GlobalConfig.language.code}.json")
 	if not os.path.isfile(cardCatalogPath):
-		retrieveAndSaveCardCatalog(pathToCardCatalog)
+		retrieveAndSaveCardCatalog()
 	with open(cardCatalogPath, "r", encoding="utf-8") as cardCatalogFile:
 		cardCatalog = json.load(cardCatalogFile)
 	imagesFound = 0
