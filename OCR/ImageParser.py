@@ -69,7 +69,7 @@ class ImageParser:
 			imagePath = os.path.join(baseImagePath, f"{cardId}.png")
 		if not os.path.isfile(imagePath):
 			raise FileNotFoundError(f"Unable to find image for card ID {cardId}")
-		cardImage: Optional[cv2.typing.MatLike] = cv2.imread(imagePath, cv2.IMREAD_COLOR_RGB)
+		cardImage: Optional[cv2.typing.MatLike] = cv2.imread(imagePath)
 		if cardImage is None:
 			raise ValueError(f"Card image '{imagePath}' could not be loaded, possibly because it doesn't exist")
 		cardImage: cv2.typing.MatLike
@@ -107,7 +107,7 @@ class ImageParser:
 		if isLocation:
 			# Location cards are horizontal, so the image should be rotated for proper OCR
 			cardImage = cv2.rotate(cardImage, cv2.ROTATE_90_CLOCKWISE)
-		greyCardImage: cv2.typing.MatLike = cv2.cvtColor(cardImage, cv2.COLOR_RGB2GRAY)
+		greyCardImage: cv2.typing.MatLike = cv2.cvtColor(cardImage, cv2.COLOR_BGR2GRAY)
 
 		isCharacter = None
 		if cardType:
@@ -482,7 +482,7 @@ class ImageParser:
 		imageFilePath = os.path.join(baseImagePath, f"{coconutCard.number}.jpg")
 		if not os.path.isfile(imageFilePath):
 			raise FileNotFoundError(f"The image file for Format Coconut card {coconutCard} is missing, please run the 'download' action first")
-		cardImage: Optional[cv2.typing.MatLike] = cv2.imread(imageFilePath, cv2.IMREAD_COLOR_RGB)
+		cardImage: Optional[cv2.typing.MatLike] = cv2.imread(imageFilePath)
 		if cardImage is None:
 			raise ValueError(f"Unable to read image for coconut card {coconutCard}")
 		cardImageAndText: ImageAndText = self._getSubImageAndText(cardImage, parseSettings.cardLayout.textbox)
@@ -506,7 +506,7 @@ class ImageParser:
 
 	def _imageToString(self, image: cv2.typing.MatLike, isNumeric: bool = False, imageAreaName: Optional[str] = None) -> str:
 		# TesserOCR uses Pillow-format images, so convert our CV2-format image
-		self._tesseractApi.SetImage(Image.fromarray(image))
+		self._tesseractApi.SetImage(Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB)))
 		result: str = self._tesseractApi.GetUTF8Text().rstrip("\n")
 		if isNumeric and not result.isnumeric():
 			# Forcing Tesseract to only recognise numbers for isNumeric often leads to empty results
