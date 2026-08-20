@@ -973,7 +973,7 @@ def _parseSubtypes(subtypesText: Optional[str], outputCard: OutputCard):
 			subtypes[subtypeIndex] = "Floodborn"
 		elif GlobalConfig.language == Language.ENGLISH and subtype != "Hero" and re.match(r"e?H[eo]r[aeos]", subtype):
 			subtypes[subtypeIndex] = "Hero"
-		elif subtype == "Hros":
+		elif re.match("Hé?[rt]os", subtype):
 			subtypes[subtypeIndex] = "Héros"
 		elif re.match("I?Hl?usion", subtype):
 			subtypes[subtypeIndex] = "Illusion"
