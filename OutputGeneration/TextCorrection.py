@@ -283,7 +283,7 @@ def correctPunctuation(textToCorrect: str) -> str:
 	# Simplify quote mark if it's used in a contraction
 	correctedText = re.sub(r"(?<=\w)['‘’]+(?=\w)", "'", correctedText)
 	# It frequently misses the dash before a quote attribution
-	correctedText = re.sub(r"\n([A-Z]\w+)$", "\n—\\1", correctedText)
+	correctedText = re.sub(fr"({GlobalConfig.language.closeDoubleQuotemark}\n)([A-Z]\w+)$", "\\1—\\2", correctedText)
 	# Fix some erroneous extra punctuation
 	correctedText = re.sub(r"^_ ", "", correctedText)
 	correctedText = re.sub(r"\? [.;]$", "?", correctedText)
