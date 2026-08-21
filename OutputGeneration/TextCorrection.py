@@ -16,6 +16,8 @@ def correctText(cardText: str) -> str:
 	originalCardText = cardText
 	cardText = re.sub("\n{2,}", "\n", cardText.strip())
 	## First simple typos ##
+	# Square closing bracket doesn't exist, probably a '1'
+	cardText = cardText.replace("+]", "+1")
 	# Commas should always be followed by a space
 	cardText = re.sub(",(?! |’|”|$)", ", ", cardText, flags=re.MULTILINE)
 	# The 'Exert' symbol often gets read as a 6
