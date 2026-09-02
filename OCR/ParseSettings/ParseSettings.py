@@ -25,7 +25,9 @@ class ParseSettings:
 	labelMaskColor: Tuple[int, int, int] = ParseSettingConstants.WHITE
 	cardTextHasOutline: bool = False  # Iconic cards don't just have one card text color, but they have dark text with a white outline, which confuses parsing. Set this to True for those cards to floodfill and fix that problem
 	typeImageTextColorOverride: Optional[ImageArea.TextColour] = None  # If a different type image text color should be used than default for the card layout, set it here
-	typeImageRightOffset: int = 0  # Positive values make the types subimage wider to the right, negative values make it shorter to the left
+	typeImageLeftOffset: int = 0  # Positive values shrink the types subimage from the left, negative values make it wider on the left
+	typeImageRightOffset: int = 0  # Positive values make the types subimage wider on the right, negative values shrink it on the right
+	typeImageVerticalOffset: int = 0  # Positive values make the types subimage start further down, negative values make it start further up
 	parseIdentifier: bool = False
 	getIdentifierFromCard: bool = False
 	forceArtistTextColor: Optional[ImageArea.TextColour] = None

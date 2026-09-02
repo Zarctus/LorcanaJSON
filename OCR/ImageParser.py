@@ -119,7 +119,8 @@ class ImageParser:
 			cardLayout = parseSettings.characterCardLayout
 		else:
 			cardLayout = parseSettings.cardLayout
-		typesImage = self._getSubImage(greyCardImage, cardLayout.types, offsetTop=parseSettings.textboxTopOffset, offsetBottom=parseSettings.textboxTopOffset, offsetRight=parseSettings.typeImageRightOffset)
+		typesImageVerticalOffset = parseSettings.textboxTopOffset + parseSettings.typeImageVerticalOffset
+		typesImage = self._getSubImage(greyCardImage, cardLayout.types, offsetTop=typesImageVerticalOffset, offsetBottom=typesImageVerticalOffset, offsetLeft=parseSettings.typeImageLeftOffset, offsetRight=parseSettings.typeImageRightOffset)
 		typesImage = self._convertToThresholdImage(typesImage, parseSettings.typeImageTextColorOverride if parseSettings.typeImageTextColorOverride else cardLayout.types.textColour)
 		typesImageText = self._imageToString(typesImage).strip("\"'‘-1|{} ")
 		if "\n" in typesImageText:
