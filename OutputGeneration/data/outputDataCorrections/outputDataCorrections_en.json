@@ -1826,32 +1826,12 @@
   },
   "2178": {
     "abilities": [
-      "^NE",
-      "C",
-      " J$",
-      "",
-      "et",
-      "e t",
-      "tt",
-      "t",
-      "rec",
-      "rac",
-      " oman.+$",
-      "r\nhas a card under him, he gets +3 ¤, +3 ⛉, and +3 ◊."
-    ],
-    "effects": [
-      "is1O.+$",
-      " 5 ⬡\n\nEvasive"
+      " W",
+      " ⛉"
     ],
     "subtypes": [
-      null,
-      null,
-      null,
-      [
-        "Floodborn",
-        "Hero",
-        "Prince"
-      ]
+      "nH",
+      "n • H"
     ]
   },
   "2188": {
@@ -2428,54 +2408,10 @@
   },
   "2704": {
     "abilities": [
-      " \\)$",
-      "",
-      "n, y",
-      "n y",
-      "'",
-      " ",
-      "y,",
-      "y",
-      "’",
-      ",",
-      "j",
-      " ",
-      "U",
-      "u",
-      "tt",
-      "t t",
-      "era",
-      "er a",
-      "oR",
-      "of",
-      " ¤",
-      "",
-      "Ch",
-      "ch",
-      "sc",
-      "s c",
-      "dt",
-      "d t",
-      "sturns",
-      "s turn,",
-      "Canto",
-      "can't",
-      "tfofy",
-      "t of y",
-      "nn",
-      "r n",
-      "tst",
-      "t t",
-      "™",
-      "."
-    ],
-    "effects": [
-      "ii",
-      "if",
-      "t3",
-      "t 3",
-      "¤.+$",
-      "⬡"
+      "it3O\\.",
+      "ift 3 ⬡",
+      "u'p",
+      "u p"
     ],
     "artistsText": [
       "oR",
@@ -3103,37 +3039,15 @@
     ]
   },
   "3215": {
-    "_insertAbilityAtIndex": [0, "Shift 3 ⬡", 1, "Resist +1", 2, "Support"],
-    "_removeAbilitiesAtIndexes": [3],
     "artistsText": [
       "\\}.+$",
       ""
     ],
     "effects": [
-      null,
-      null
-    ]
-  },
-  "3216": {
-    "abilities": [
-      " I\n",
+      "0 ¤",
+      " ⬡",
       "\n",
-      "n,",
-      "n",
-      "\\.0\\.5",
-      " ⬡ —",
-      "—\n",
-      "\n",
-      "cant",
-      "can't",
-      ":",
-      "."
-    ],
-    "effects": [
-      "^s",
-      "S",
-      "¤ \\.$",
-      "⬡"
+      "\n\n"
     ]
   },
   "3217": {

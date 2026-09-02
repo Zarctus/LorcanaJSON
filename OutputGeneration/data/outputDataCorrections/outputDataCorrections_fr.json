@@ -2866,22 +2866,13 @@
     ]
   },
   "2178": {
-    "_insertAbilityAtIndex": [1, "Insaisissable"],
     "abilities": [
-      "s1Q\\.\\)$",
-      " 5 ⬡",
-      "NE",
-      "NÉ",
-      "^En.+pe$",
-      "Tant que ce personnage a\nune carte sous lui, il gagne +3 ¤, +3 ⛉ et +3 ◊."
-    ],
-    "subtypes": [
-      null,
-      [
-        "Floodborn",
-        "Héros",
-        "Prince"
-      ]
+      "NE ",
+      "NÉ ",
+      "We",
+      "⛉ e",
+      "à",
+      "◊"
     ]
   },
   "2180": {
@@ -3623,37 +3614,13 @@
     ]
   },
   "2704": {
-    "_insertAbilityAtIndex": [
-      0,
-      "Alter 3 ⬡"
-    ],
     "abilities": [
-      " J$",
-      "",
-      "e, ",
-      "e ",
-      "[\"”{})£x-]",
-      " ",
-      "eyv",
-      "e v",
-      "epa.+San",
-      "capacité Alter, si aucun",
-      "tn aj",
-      " n'a ",
-      "J",
-      " ",
-      "r citles",
-      "r-ci, les",
-      "nnen ur",
-      "nnages",
-      "u aul",
-      "u'au ",
-      "\\. +",
-      " ",
-      " eg\n",
-      "\n",
-      " SRE.+$",
-      "."
+      ":",
+      "z",
+      "nade",
+      "nage",
+      "aucur",
+      "aucun"
     ],
     "artistsText": [
       "oR",
@@ -4485,11 +4452,6 @@
     ]
   },
   "3215": {
-    "_insertAbilityAtIndex": [
-      0, "Alter 3 ⬡",
-      1, "Résistance +1",
-      2, "Soutien"
-    ],
     "artistsText": [
       "tO",
       "t O",
@@ -4497,26 +4459,8 @@
       ""
     ],
     "effects": [
-      null,
-      null
-    ],
-    "subtypes": [
-      "Hétos",
-      "Héros",
-      "^NES$",
-      null
-    ]
-  },
-  "3216": {
-    "abilities": [
-      " [|/]",
-      "",
-      " JE\\. -\n— 2 21810 ¤ 5 ¤",
-      "",
-      "rle",
-      "r le",
-      "décetou es À Pa",
-      "de ce tour."
+      "\n",
+      "\n\n"
     ]
   },
   "3218": {

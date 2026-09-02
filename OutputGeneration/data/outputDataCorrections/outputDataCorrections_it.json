@@ -1652,26 +1652,13 @@
     ]
   },
   "2178": {
-    "_insertAbilityAtIndex": [0, "Sfuggente"],
     "abilities": [
-      "T$",
-      "TA",
-      "^A .+SIG$",
-      "Mentre questo personaggio ha\nuna carta sotto di sé, riceve +3 ¤, +3 ⛉ e +3 ◊."
-    ],
-    "effects": [
-      "^\\{I ",
-      "T",
-      "o O\\.\\)",
-      " 5 ⬡"
-    ],
-    "subtypes": [
-      null,
-      [
-        "Imbevuto",
-        "Eroe",
-        "Principe"
-      ]
+      "¤ ",
+      "¤, ",
+      "BW",
+      "⛉",
+      "e\\+",
+      "e +"
     ]
   },
   "2184": {
@@ -2401,44 +2388,21 @@
     ]
   },
   "2704": {
-    "_insertAbilityAtIndex": [0, "Trasformazione 3 ⬡"],
     "abilities": [
-      " F$",
+      "\n— \\. E \\. x \\. \\.",
       "",
-      "[;{/\"\\]]",
-      " ",
-      "\\.\\)",
-      " ",
-      " \n",
-      "\n",
-      "! S",
-      ", s",
-      "ifu",
-      "i u",
-      ",\n",
-      "\n",
-      "ijt",
-      "i t",
-      "giha",
-      "gi ha",
-      "gyjn",
-      "o in",
-      "odif",
-      "o, i",
-      "njp",
-      "n p",
-      "ojs",
-      "o s",
-      "deltuo",
-      "del tuo",
-      "oft",
-      "o t",
-      " GR” PA",
-      "."
-    ],
-    "subtypes": [
-      "im",
-      "Im"
+      "i\n",
+      "r\n",
+      "to ¤ rnie",
+      "lo e ne",
+      "hè",
+      "ha",
+      "possanie",
+      "possono",
+      "zia",
+      "zio",
+      "ma ",
+      "mo "
     ]
   },
   "2705": {
@@ -3413,46 +3377,8 @@
       ""
     ],
     "effects": [
-      "\\[",
-      "T",
-      "tornm",
-      "form",
-      "¤ e i N JA\n“E",
-      "⬡\n\nRe",
-      "TA ¤ kr\nSN I i\nA i",
-      "+1\n\nAi",
-      " e\\.\\)\n1 ii",
-      ""
-    ],
-    "subtypes": [
-      "ZAN",
-      null
-    ]
-  },
-  "3216": {
-    "abilities": [
-      "yol",
-      "vol",
-      " —",
-      "",
-      ", ,\n• ENIT a Cern",
-      ".",
-      " ‘$",
-      "",
-      "⬡ P",
-      "⬡ — P",
-      "i\\.",
-      "i",
-      "ituo",
-      "i tuo",
-      "!",
-      ".",
-      "peril",
-      "per il",
-      "tot",
-      "to t",
-      "mo MiB A nai",
-      "no."
+      "\n",
+      "\n\n"
     ]
   },
   "3217": {
