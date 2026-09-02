@@ -134,7 +134,6 @@ class ImageParser:
 			else:
 				typesImageText = re.sub("(?<=[a-z])-(?=[A-Z])", LorcanaSymbols.SEPARATOR_STRING, typesImageText)
 			result["subtypesText"] = ImageAndText(typesImage, typesImageText)
-			self._logger.debug(f"{typesImageText=}")
 			if parseSettings.isItemOverride:
 				isCharacter = False
 			elif isCharacter is None:
