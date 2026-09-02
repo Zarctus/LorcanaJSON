@@ -252,6 +252,8 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 
 		for remainingTextLine in remainingTextLines:
 			remainingTextLine = TextCorrection.correctText(TextCorrection.correctPunctuation(remainingTextLine)).replace("‘", "")
+			# Sometimes it leaves junk characters after a keyword ability
+			remainingTextLine = re.sub(f"^([A-Z][a-z]+ \\d( [{LorcanaSymbols.INK}OQ])?) [^{LorcanaSymbols.INK}]$", "\\1", remainingTextLine, flags=re.MULTILINE)
 			if len(remainingTextLine) < 4:
 				_logger.info(f"Remaining text for card {CardUtil.createOutputCardIdentifier(outputCard)} {remainingTextLine!r} is too short, discarding")
 				continue
