@@ -566,6 +566,14 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 				if len(outputCard["effects"]) == 0:
 					del outputCard["effects"]
 
+		if "subtypes" in cardDataCorrections:
+			# If a separator was added in a correction, it needs to be split into two subtypes
+			# Go end to start so we can insert a subtype after the current one if needed, without messing up iteration
+			for subtypeIndex in range(len(outputCard["subtypes"]) - 1, -1, -1):
+				while LorcanaSymbols.SEPARATOR_STRING in outputCard["subtypes"][subtypeIndex]:
+					shortenedSubtype, newSubtype = outputCard["subtypes"][subtypeIndex].rsplit(LorcanaSymbols.SEPARATOR_STRING, 1)
+					outputCard["subtypes"][subtypeIndex] = shortenedSubtype
+					outputCard["subtypes"].insert(subtypeIndex + 1, newSubtype)
 	# An effect should never start with a separator; if it does, join it with the previous effect since it should be part of its option list
 	# An effect also never starts with a number, also join that with the previous effect
 	if "effects" in outputCard:
