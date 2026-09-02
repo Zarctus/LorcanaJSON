@@ -616,7 +616,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 							keywordValue = keywordNameValueMatch.group(2)
 						else:
 							_logger.warning(f"Unable to match keyword and value of '{keyword}' in ability index {abilityIndex} of card {CardUtil.createOutputCardIdentifier(outputCard)}")
-				elif keyword[-3].isnumeric():
+				elif keyword[-3].isnumeric() and keyword.count(" ") >= 2:
 					# From set 9 on, Shift gets written as "Shift x {ink}", check for that too
 					keyword, keywordValue, inkSymbol = keyword.rsplit(" ", 2)
 				elif ":" in keyword:
