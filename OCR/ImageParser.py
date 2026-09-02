@@ -8,6 +8,7 @@ from PIL import Image
 
 import GlobalConfig
 from OCR import ImageArea
+from OCR.CardLayout import CardLayout
 from OCR.OcrResult import OcrResult
 from OCR.ParseSettings.ParseSettings import ParseSettings
 from OCR.ParseSettings.LabelParsingMethods import LABEL_PARSING_METHODS
@@ -167,7 +168,7 @@ class ImageParser:
 			result["identifier"] = self._getSubImageAndText(greyCardImage, cardLayout.identifier)
 
 		# Greyscale images work better, so get one from just the textbox
-		greyTextboxImage = self._getSubImage(greyCardImage, cardLayout.textbox, parseSettings.textboxLeftOffset, parseSettings.textboxRightOffset * -1, parseSettings.textboxTopOffset, parseSettings.textboxBottomOffset)
+		greyTextboxImage = self._getTextboxSubimage(greyCardImage, cardLayout, parseSettings)
 		textboxWidth = greyTextboxImage.shape[1]
 		textboxHeight = greyTextboxImage.shape[0]
 
@@ -364,9 +365,15 @@ class ImageParser:
 
 			# There might be text above the label coordinates too (abilities text), especially if there aren't any labels. Get that text as well
 			if previousBlockTopY > 35:
-				remainingTextImage = self._convertToThresholdImage(greyTextboxImage[0:previousBlockTopY, 0:textboxWidth], parseSettings.thresholdTextColor)
-				if parseSettings.cardTextHasOutline:
-					cv2.floodFill(remainingTextImage, None, (1, 1), 0)
+				if parseSettings.labelParsingMethod == LABEL_PARSING_METHODS.FALLBACK_COLOR_FILTER:
+					if parseSettings.colorFilterLowerBound is None or parseSettings.colorFilterUpperBound is None:
+						raise ValueError("For Color Filter label parsing methods the lower and upper color bounds need to be filled in")
+					coloredTextboxImage = self._getTextboxSubimage(cardImage, cardLayout, parseSettings)
+					remainingTextImage = cv2.inRange(coloredTextboxImage, parseSettings.colorFilterLowerBound, parseSettings.colorFilterUpperBound)
+				else:
+					remainingTextImage = self._convertToThresholdImage(greyTextboxImage[0:previousBlockTopY, 0:textboxWidth], parseSettings.thresholdTextColor)
+					if parseSettings.cardTextHasOutline:
+						cv2.floodFill(remainingTextImage, None, (1, 1), 0)
 				# For some cards, it thinks there is remaining text, but they're just random markings (mainly Floodborn cards with ink splotches dripping from the subtypes)
 				# If the image is too white, it can't be text, so discard the erroneous remaining text image
 				# Only do this check if there's at least one ability, because the percentages can get weird if there's one short effect on the whole card, leading to false positives
@@ -386,7 +393,7 @@ class ImageParser:
 				else:
 					remainingText = self._imageToString(remainingTextImage)
 				if remainingText:
-					if parseSettings.labelParsingMethod == LABEL_PARSING_METHODS.FALLBACK_WHITE_ABILITY_TEXT and re.search("[A-Z]{2,}", remainingText):
+					if parseSettings.labelParsingMethod in (LABEL_PARSING_METHODS.FALLBACK_COLOR_FILTER, LABEL_PARSING_METHODS.FALLBACK_WHITE_ABILITY_TEXT) and re.search("[A-Z]{2,}", remainingText):
 						# Detecting labels on new-style Enchanted cards is hard, so for those the full card text is 'remainingText'
 						# Try to get the labels and effects out
 						# TODO Implement this splitting regex ([A-Z]+(?:\s+[A-Z]+)*)\s+(\S+(?:\s+(?!(?:[AI] )?[A-Z]{2,})\S+)*)  (See https://regex101.com/r/r2mDAR/6 )
@@ -561,3 +568,7 @@ class ImageParser:
 		if fieldResult is None:
 			return None
 		return fieldResult.text
+
+	@staticmethod
+	def _getTextboxSubimage(fullInputImage: cv2.typing.MatLike, cardLayout: CardLayout, parseSettings: ParseSettings) -> cv2.typing.MatLike:
+		return ImageParser._getSubImage(fullInputImage, cardLayout.textbox, parseSettings.textboxLeftOffset, parseSettings.textboxRightOffset * -1, parseSettings.textboxTopOffset, parseSettings.textboxBottomOffset)
