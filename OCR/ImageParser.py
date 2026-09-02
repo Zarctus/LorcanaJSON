@@ -279,7 +279,7 @@ class ImageParser:
 
 		# Find the line dividing the abilities from the flavor text, if needed
 		flavorTextImage: Optional[cv2.typing.MatLike] = None
-		flavorTextSeparatorY = textboxHeight
+		flavorTextSeparatorY: int = textboxHeight
 		flavorTextLineDetectionCroppedImage: Optional[cv2.typing.MatLike] = None
 		flavorTextEdgeDetectedImage: Optional[cv2.typing.MatLike] = None
 		flavorTextGreyscaleImageWithLines: Optional[cv2.typing.MatLike] = None
