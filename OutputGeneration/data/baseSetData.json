@@ -352,6 +352,29 @@
     },
     "allowedInTournamentsFromDate": null
   },
+  "16": {
+    "names": {
+      "de": "Kosmische Reise",
+      "en": "Cosmic Quest",
+      "fr": "Aventure Cosmique",
+      "it": "Avventura Cosmica"
+    },
+    "prereleaseDate": null,
+    "releaseDate": null,
+    "hasAllCards": false,
+    "type": "expansion",
+    "number": 16,
+    "allowedInFormats": {
+      "Core": {
+        "allowed": false,
+        "rotationGroup": 4
+      },
+      "Infinity": {
+        "allowed": false
+      }
+    },
+    "allowedInTournamentsFromDate": null
+  },
   "Q1": {
     "names": {
       "de": "Die Luminari Chroniken: Gefahr aus der Tiefe",
