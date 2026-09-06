@@ -56,12 +56,6 @@
       "ée"
     ]
   },
-  "68": {
-    "flavorText": [
-      "—H",
-      "H"
-    ]
-  },
   "75": {
     "flavorText": [
       ";",
@@ -126,12 +120,6 @@
     "artistsText": [
       "n S",
       "n-S"
-    ]
-  },
-  "138": {
-    "flavorText": [
-      "—P",
-      "P"
     ]
   },
   "145": {
@@ -1936,24 +1924,11 @@
     ]
   },
   "2178": {
-    "_insertAbilityAtIndex": [1, "Wendig", 2, "Solange dieser Charakter\nmindestens eine Karte unter sich hat, erhält er +3 ¤,\n+3 ⛉ und +3 ◊.", "KRÖNENDER ABSCHLUSS"],
     "abilities": [
-      "^\\(",
-      "",
-      "SO\\.\\)",
-      "5 ⬡"
-    ],
-    "effects": [
-      null,
-      null
-    ],
-    "subtypes": [
-      null,
-      [
-        "Flutgestalt",
-        "Held",
-        "Prinz"
-      ]
+      "Wu",
+      "⛉ u",
+      "¤\\.",
+      "◊."
     ]
   },
   "2184": {
@@ -2042,7 +2017,7 @@
   },
   "2270": {
     "abilities": [
-      " \\|\n—EL",
+      " \\|\nEL",
       ""
     ]
   },
@@ -2517,8 +2492,8 @@
   "2693": {
     "_skipFullTextSectionMergeAtIndex": 1,
     "effects": [
-      "—",
-      "\n"
+      "⬡\nW",
+      "⬡\n\nW"
     ]
   },
   "2695": {
@@ -2556,7 +2531,7 @@
       "◊"
     ],
     "effects": [
-      "a SA\n—",
+      "a SA\n",
       "",
       "n20",
       "n 2 ⬡"
@@ -2574,44 +2549,18 @@
   },
   "2704": {
     "abilities": [
-      "ltv",
-      "estaltw",
-      " J$",
+      "^BO$",
       "",
-      "urd",
-      "u d",
-      "\\(",
-      " ",
-      "M",
-      "m",
-      "ev",
-      "e v",
-      "elau",
-      "el au",
-      "X",
-      ", ",
-      "inid",
-      "in d",
-      "forder gr",
-      "fordert",
-      "n, C",
-      "n C",
-      "'",
-      " ",
-      "sz",
-      "s z",
-      "\\]",
-      " ",
-      "stn",
-      "s n",
-      "enge",
-      "en",
-      "tsh",
-      "t h",
-      "ör",
-      "or",
-      "t EP$",
-      "."
+      "3$",
+      "3 ⬡",
+      "ausp",
+      "aussp",
+      "nach",
+      "noch",
+      "dermes",
+      "deines",
+      "richt",
+      "nicht"
     ]
   },
   "2705": {
@@ -2953,7 +2902,7 @@
   },
   "2941": {
     "effects": [
-      "“AED\\n—",
+      "“AED\\n",
       ""
     ]
   },
@@ -3254,10 +3203,6 @@
       "\\.\n•",
       ".\n\n…"
     ],
-    "effects": [
-      " 3$",
-      ""
-    ],
     "subtypes": [
       "it$",
       "itän"
@@ -3271,7 +3216,7 @@
   },
   "3207": {
     "effects": [
-      "⬡\n—",
+      "⬡\n",
       "⬡\n\n"
     ]
   },
@@ -3288,32 +3233,13 @@
     ]
   },
   "3215": {
-    "_insertAbilityAtIndex": [0, "Gestaltwandel 3 ⬡", 1, "Robust +1", 2, "Unterstützen"],
-    "effects": [
-      null,
-      null
-    ],
     "artistsText": [
       "!",
       ""
-    ]
-  },
-  "3216": {
-    "abilities": [
-      "diesen",
-      "dieser",
-      "t \\?mach⬡",
-      "t, mache",
-      "76 ⬡ Z",
-      "6 ⬡ – ",
-      "e,",
-      "e",
-      "“",
-      "",
-      "g\\.",
-      "g",
-      " a 4 gen",
-      "."
+    ],
+    "effects": [
+      "\n",
+      "\n\n"
     ]
   },
   "3217": {

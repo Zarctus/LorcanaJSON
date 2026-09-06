@@ -1,4 +1,3 @@
-from collections import namedtuple
 from dataclasses import dataclass
 
 import cv2
@@ -8,13 +7,26 @@ import cv2
 IMAGE_WIDTH = 1468
 IMAGE_HEIGHT = 2048
 
-TextColour = namedtuple("TextColour", ("name", "thresholdValue", "thresholdType"))
+
+@dataclass(frozen=True)
+class TextColour:
+	name: str
+	thresholdValue: int
+	thresholdType: int
+
+
 TEXT_COLOUR_WHITE = TextColour("white", 148, cv2.THRESH_BINARY_INV)
 TEXT_COLOUR_WHITE_LIGHT_BACKGROUND = TextColour("whiteOnLight", 233, cv2.THRESH_BINARY_INV)
 TEXT_COLOUR_BLACK = TextColour("black", 50, cv2.THRESH_BINARY)
 TEXT_COLOUR_MIDDLE = TextColour("middle", 127, cv2.THRESH_BINARY)
 
-_Coords = namedtuple("Coords", ("left", "top", "right", "bottom"))
+
+@dataclass(frozen=True)
+class _Coords:
+	left: int
+	top: int
+	right: int
+	bottom: int
 
 
 @dataclass(frozen=True)
@@ -68,6 +80,8 @@ NEW_ENCHANTED_TYPE_SMALL_TEXT_BOX = ImageArea("newEnchantedType_smallTextbox", "
 NEW_ENCHANTED_CHARACTER_SMALL_TEXT_BOX = ImageArea("newEnchantedCharacterSmallTextBox", "New Enchanted Character Small Textbox", _Coords(134,1635, 1261,1869), TEXT_COLOUR_WHITE_LIGHT_BACKGROUND)
 NEW_ENCHANTED_FULL_WIDTH_SMALL_TEXT_BOX = ImageArea("newEnchantedFullWidthSmallTextbox", "New Enchanted Full Width Small Textbox", _Coords(134,1623, 1375,1850), TEXT_COLOUR_WHITE)
 
+ICONIC_TYPE = ImageArea("iconicType", "Iconic Type", _Coords(140,1333, 933,1385), TEXT_COLOUR_MIDDLE)
+ICONIC_CHARACTER_TEXT_BOX = ImageArea("iconicCharacterTextbox", "Iconic Character Textbox", _Coords(46,1415, 1360,1860), TEXT_COLOUR_MIDDLE)
 IS_INKABLE_CHECK = ImageArea("isInkable", "Is Inkable", _Coords(69,142, 70,143), TEXT_COLOUR_MIDDLE)
 IS_BORDERLESS_CHECK = ImageArea("isBorderless", "Is Borderless", _Coords(5,260, 40,1290), TEXT_COLOUR_MIDDLE)
 IS_LOCATION_CHECK = ImageArea("isLocation", "Is Location", _Coords(1330,414, 1392,848), TEXT_COLOUR_MIDDLE)

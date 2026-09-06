@@ -1,5 +1,5 @@
 import json, os, re
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import GlobalConfig
 from OutputGeneration import TextCorrection
@@ -22,7 +22,7 @@ def compareInputToOutput(cardIdsToVerify: Optional[List[int]]):
 		outputCardStore = json.load(outputFile)
 	idToEnglishOutputCard = {}
 	englishRarities = None
-	currentLanguageRarities = None
+	currentLanguageRarities: Optional[Tuple[str, ...]] = None
 	if GlobalConfig.language != Language.ENGLISH:
 		englishOutputFilePath = os.path.join("output", Language.ENGLISH.code, "allCards.json")
 		if os.path.isfile(englishOutputFilePath):
@@ -35,7 +35,7 @@ def compareInputToOutput(cardIdsToVerify: Optional[List[int]]):
 		englishRarities = (Translations.ENGLISH.COMMON, Translations.ENGLISH.UNCOMMON, Translations.ENGLISH.RARE, Translations.ENGLISH.SUPER, Translations.ENGLISH.LEGENDARY,
 						   Translations.ENGLISH.EPIC, Translations.ENGLISH.ENCHANTED, Translations.ENGLISH.ICONIC, Translations.ENGLISH.SPECIAL)
 		currentTranslation = Translations.getForLanguage(GlobalConfig.language)
-		currentLanguageRarities = (currentTranslation.COMMON, currentTranslation.UNCOMMON, currentTranslation.RARE, currentTranslation.SUPER, currentTranslation.LEGENDARY,
+		currentLanguageRarities: Tuple[str, ...] = (currentTranslation.COMMON, currentTranslation.UNCOMMON, currentTranslation.RARE, currentTranslation.SUPER, currentTranslation.LEGENDARY,
 								   currentTranslation.EPIC, currentTranslation.ENCHANTED, currentTranslation.ICONIC, currentTranslation.SPECIAL)
 
 	idToInputCard = {}
@@ -75,7 +75,7 @@ def compareInputToOutput(cardIdsToVerify: Optional[List[int]]):
 		_prepareInputCardRulesText(inputCard)
 		_prepareInputCardFlavorText(inputCard)
 		# Implement overrides
-		listEntryLengthChange: Optional[Dict[str, List[int, int]]] = None
+		listEntryLengthChange: Optional[Dict[str, List[int]]] = None
 		listFieldLengthChange: Optional[Dict[str, int]] = None
 		symbolCountChange: Optional[Dict[str, int]] = None
 		openQuotemarkCountChange: int = 0
@@ -329,7 +329,7 @@ def _prepareInputCardFlavorText(inputCard: Dict):
 		# Use the ellipsis character instead of three separate periods
 		inputFlavorText = inputFlavorText.replace("...", "…")
 	if GlobalConfig.language == Language.FRENCH:
-		inputFlavorText = re.sub(r"(?<=\w|’|')([?!:])", r" \1", inputFlavorText)
+		inputFlavorText = re.sub(r"(?<=[\w’'])([?!:])", r" \1", inputFlavorText)
 	elif GlobalConfig.language == Language.GERMAN:
 		# Quote attribution uses the wrong dash and doesn't have a space in the input text, but it does on the card. Ignore the difference
 		# The second set use a short n-dash instead of a long m-dash, correct for that

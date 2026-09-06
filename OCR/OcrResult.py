@@ -1,24 +1,27 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
+
+from OCR.ParseSettings.ParseSettings import ParseSettings
 
 @dataclass
 class OcrResult:
+	parseSettingsUsed: ParseSettings
 	# Always parsed
-	abilityLabels: List[str]
-	abilityTexts: List[str]
+	abilityLabels: Optional[List[str]]
+	abilityTexts: Optional[List[str]]
 	artistsText: str
 	# Some fields might not be used on the card
-	flavorText: str
-	remainingText: str
-	subtypesText: str
+	flavorText: Optional[str] = None
+	remainingText: Optional[str] = None
+	subtypesText: Optional[str] = None
 	# Optionally parsed
-	cost: str = None
-	identifier: str = None
-	moveCost: str = None
-	name: str = None
-	strength: str = None
-	version: str = None
-	willpower: str = None
+	cost: Optional[str] = None
+	identifier: Optional[str] = None
+	moveCost: Optional[str] = None
+	name: Optional[str] = None
+	strength: Optional[str] = None
+	version: Optional[str] = None
+	willpower: Optional[str] = None
 
 	def __getitem__(self, item) -> str:
 		# This allows the use of item subscription (myOcrResult['cost'])

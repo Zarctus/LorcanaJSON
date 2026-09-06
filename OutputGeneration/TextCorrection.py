@@ -3,6 +3,7 @@ from typing import Dict, List, Union
 
 import GlobalConfig
 from util import CardUtil, Language, LorcanaSymbols
+from util.typedDicts.OutputCard import OutputCard
 
 _logger = logging.getLogger("LorcanaJSON")
 
@@ -15,6 +16,8 @@ def correctText(cardText: str) -> str:
 	originalCardText = cardText
 	cardText = re.sub("\n{2,}", "\n", cardText.strip())
 	## First simple typos ##
+	# Square closing bracket doesn't exist, probably a '1'
+	cardText = cardText.replace("+]", "+1")
 	# Commas should always be followed by a space
 	cardText = re.sub(",(?! |’|”|$)", ", ", cardText, flags=re.MULTILINE)
 	# The 'Exert' symbol often gets read as a 6
@@ -41,7 +44,7 @@ def correctText(cardText: str) -> str:
 	# Make sure there's a period before a closing bracket
 	cardText = re.sub(fr"([^.,'!?’{LorcanaSymbols.STRENGTH}])\)", r"\1.)", cardText)
 	# Strip erroneously detected characters from the end
-	cardText = re.sub(r" [‘‘;]$", "", cardText, flags=re.MULTILINE)
+	cardText = re.sub(r" ['‘;]$", "", cardText, flags=re.MULTILINE)
 	# The Lore symbol often gets mistaken for a 4, À, or è, correct hat
 	cardText = re.sub(r"(\d) ?[4Àè](?=[ \n.])", fr"\1 {LorcanaSymbols.LORE}", cardText)
 	# It sometimes misses the strength symbol between a number and the closing bracket
@@ -53,7 +56,7 @@ def correctText(cardText: str) -> str:
 	# Negative numbers are always followed by a strength symbol, correct that
 	cardText = re.sub(fr"(?<= )(-\d)( [^{LorcanaSymbols.STRENGTH}{LorcanaSymbols.LORE}a-z .]{{1,2}})?( \w{{2,}}|$)", fr"\1 {LorcanaSymbols.STRENGTH}\3", cardText, flags=re.MULTILINE)
 	# Two numbers in a row never happens, or a digit followed by a loose capital lettter. The latter should probably be a Strength symbol
-	cardText = re.sub(r"(\d) \(?[0-9DGOQ]{1,2}[%{}°»]?(?=\W|\.)", f"\\1 {LorcanaSymbols.STRENGTH}", cardText)
+	cardText = re.sub(r"(\d) \(?[0-9DGOQ]{1,2}[%{}°»]?(?=[\W.])", f"\\1 {LorcanaSymbols.STRENGTH}", cardText)
 	# Letters after a quotemark at the start of a line should be capitalized
 	cardText = re.sub("^“[a-z]", lambda m: m.group(0).upper(), cardText, flags=re.MULTILINE)
 	while re.search(f"\\s[^?!.…”“0-9{LorcanaSymbols.INK}]$", cardText):
@@ -217,7 +220,7 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(fr"(\b[Pp]ag(a(?:re)?|hi)\s\d )[^{LorcanaSymbols.INK} .\n]+", fr"\1{LorcanaSymbols.INK}", cardText)
 		cardText = re.sub(r"(\b[Pp]aga(?:re)?\s\d)[0Q]", f"\\1 {LorcanaSymbols.INK}", cardText)
 		# Correct Support reminder text
-		cardText = re.sub(r"(?<=aggiungere\sla\ssua\s)(?:\S+)(\salla\s)(?:\S+)(?=\sdi\sun)", f"{LorcanaSymbols.STRENGTH}\\1{LorcanaSymbols.STRENGTH}", cardText)
+		cardText = re.sub(r"(?<=aggiungere\sla\ssua\s)\S+(\salla\s)\S+(?=\sdi\sun)", f"{LorcanaSymbols.STRENGTH}\\1{LorcanaSymbols.STRENGTH}", cardText)
 		cardText = re.sub(fr"(?<=puoi aggiungere la sua )(?:. )?alla(?=\n[^{LorcanaSymbols.STRENGTH}])", f"{LorcanaSymbols.STRENGTH} alla {LorcanaSymbols.STRENGTH}", cardText)
 		# Correct 'Evasive', it sometimes imagines a character between the 'S' and the 'f'
 		cardText = re.sub(r"^S.fuggente\b", "Sfuggente", cardText)
@@ -282,7 +285,7 @@ def correctPunctuation(textToCorrect: str) -> str:
 	# Simplify quote mark if it's used in a contraction
 	correctedText = re.sub(r"(?<=\w)['‘’]+(?=\w)", "'", correctedText)
 	# It frequently misses the dash before a quote attribution
-	correctedText = re.sub(r"\n([A-Z]\w+)$", "\n—\\1", correctedText)
+	correctedText = re.sub(fr"({GlobalConfig.language.closeDoubleQuotemark}\n)([A-Z]\w+)$", "\\1—\\2", correctedText)
 	# Fix some erroneous extra punctuation
 	correctedText = re.sub(r"^_ ", "", correctedText)
 	correctedText = re.sub(r"\? [.;]$", "?", correctedText)
@@ -339,7 +342,7 @@ def correctPunctuation(textToCorrect: str) -> str:
 		_logger.info(f"Corrected punctuation from {textToCorrect!r} to {correctedText!r}")
 	return correctedText
 
-def correctCardField(card: Dict, fieldName: str, regexMatchString: str, correction: str) -> None:
+def correctCardField(card: Union[Dict, OutputCard], fieldName: str, regexMatchString: Union[str, None], correction: Union[int, str, None]) -> None:
 	"""
 	Correct card-specific mistakes in the fieldName field of the provided card
 	:param card: The output card as parsed so far
@@ -368,7 +371,7 @@ def correctCardField(card: Dict, fieldName: str, regexMatchString: str, correcti
 			else:
 				_logger.warning(f"Trying to add field '{fieldName}' to card {CardUtil.createCardIdentifier(card)}, but that field already exists (value {card[fieldName]!r})")
 	elif isinstance(card[fieldName], str):
-		preCorrectedText = card[fieldName]
+		preCorrectedText: str = card[fieldName]
 		card[fieldName] = re.sub(regexMatchString, correction, preCorrectedText, flags=re.DOTALL)
 		if card[fieldName] == preCorrectedText:
 			_logger.warning(f"Correcting field '{fieldName}' in card {CardUtil.createCardIdentifier(card)} with regex {regexMatchString!r} didn't change anything, value is still {preCorrectedText!r}")
@@ -385,7 +388,7 @@ def correctCardField(card: Dict, fieldName: str, regexMatchString: str, correcti
 					match = re.search(regexMatchString, fieldValue, flags=re.DOTALL)
 					if match:
 						matchFound = True
-						preCorrectedText = fieldValue
+						preCorrectedText: str = fieldValue
 						fieldEntry[fieldKey] = re.sub(regexMatchString, correction, fieldValue, flags=re.DOTALL)
 						if fieldEntry[fieldKey] == preCorrectedText:
 							_logger.warning(f"Correcting index {fieldIndex} of field '{fieldName}' in card {CardUtil.createCardIdentifier(card)} with regex {regexMatchString!r} didn't change anything, value is still {preCorrectedText!r}")
@@ -405,7 +408,7 @@ def correctCardField(card: Dict, fieldName: str, regexMatchString: str, correcti
 							_logger.info(f"After correction, list field '{fieldName}' is now empty, deleting from card {CardUtil.createCardIdentifier(card)}")
 							del card[fieldName]
 					else:
-						preCorrectedText = fieldValue
+						preCorrectedText: str = fieldValue
 						card[fieldName][fieldIndex] = re.sub(regexMatchString, correction, fieldValue, flags=re.DOTALL)
 						if card[fieldName][fieldIndex] == preCorrectedText:
 							_logger.warning(f"Correcting index {fieldIndex} of field '{fieldName}' in card {CardUtil.createCardIdentifier(card)} with regex {regexMatchString!r} didn't change anything")
@@ -444,7 +447,7 @@ def correctCardField(card: Dict, fieldName: str, regexMatchString: str, correcti
 	else:
 		raise ValueError(f"Card correction {regexMatchString!r} for field '{fieldName}' in card {CardUtil.createCardIdentifier(card)} is of unsupported type '{type(card[fieldName])}'")
 
-def correctCardFieldFromList(card: Dict, fieldName: str, correctionsList: List[Union[int, str]]):
+def correctCardFieldFromList(card: Union[Dict, OutputCard], fieldName: str, correctionsList: List[Union[int, str]]):
 	"""
 	Correct card-specific mistakes in the fieldName field of the provided card
 	:param card: The output card as parsed so far

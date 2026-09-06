@@ -1,14 +1,15 @@
 import json, logging, os, re, time
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 import GlobalConfig
 from util import CardUtil, Language
+from util.typedDicts.OutputCard import OutputCard
 
 _logger = logging.getLogger("LorcanaJSON")
 
 
 class StoryParser:
-	def __init__(self, onlyParseIds: List[int]):
+	def __init__(self, onlyParseIds: Optional[List[int]]):
 		startTime = time.perf_counter()
 		with open(os.path.join("OutputGeneration", "data", "fromStories.json"), "r", encoding="utf-8") as fromStoriesFile:
 			fromStories = json.load(fromStoriesFile)
@@ -66,7 +67,7 @@ class StoryParser:
 						self._cardIdToStoryName[cardId] = storyName
 		_logger.debug(f"Reorganized story data after {time.perf_counter() - startTime:.4f} seconds")
 
-	def getStoryNameForCard(self, card, cardId: int, extaSearchTerms: Optional[List[str]]) -> Optional[str]:
+	def getStoryNameForCard(self, card: Union[Dict, OutputCard], cardId: int, extaSearchTerms: Optional[List[str]]) -> Optional[str]:
 		if cardId in self._cardIdToStoryName:
 			# Card is already stored, by directly referencing its ID in the 'fromStories' file, so we don't need to do anything anymore
 			return self._cardIdToStoryName[cardId]
@@ -87,7 +88,7 @@ class StoryParser:
 					break
 		if extraSearchTermStoryName and extraSearchTermStoryName in self._priorityStoryNames:
 			return extraSearchTermStoryName
-		for fieldName in ("name", "baseName", "subtitle", "fullName"):
+		for fieldName in ("name", "subtitle", "fullName"):
 			if fieldName in card and card[fieldName] in self._cardNameToStoryName:
 				return self._cardNameToStoryName[card[fieldName]]
 		# Go through each field matcher to see if it matches anything
@@ -106,14 +107,14 @@ class StoryParser:
 		# No match, try to see if any of the names occurs in some of the card's fields
 		for name, storyName in self._cardNameToStoryName.items():
 			nameRegex = re.compile(rf"\b{name}\b")
-			for fieldName in ("flavor_text", "flavorText", "rules_text", "fullText", "name", "baseName", "subtitle"):
+			for fieldName in ("flavor_text", "flavorText", "rules_text", "fullText", "name", "subtitle"):
 				if fieldName in card and nameRegex.search(card[fieldName]):
 					_logger.debug(f"Assuming {CardUtil.createCardIdentifier(card)} is in story '{storyName}' based on '{name}' in the field '{fieldName}': {card[fieldName]!r}")
 					return storyName
 		# As a last resort, check if one of the subtypes is listed somewhere in the card
 		for subtype, storyName in self._subtypeToStoryName.items():
 			subtypeRegex = re.compile(rf"\b{subtype}\b")
-			for fieldName in ("flavor_text", "flavorText", "rules_text", "fullText", "name", "baseName", "subtitle"):
+			for fieldName in ("flavor_text", "flavorText", "rules_text", "fullText", "name", "subtitle"):
 				if fieldName in card and subtypeRegex.search(card[fieldName]):
 					_logger.debug(f"Assuming {CardUtil.createCardIdentifier(card)} is in story '{storyName}' based on subtype '{subtype}' in the field '{fieldName}': {card[fieldName]!r}")
 					return storyName

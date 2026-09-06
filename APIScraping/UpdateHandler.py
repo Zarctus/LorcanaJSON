@@ -1,29 +1,31 @@
 import datetime, json, logging, os
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import GlobalConfig
 from APIScraping import ApiScrapingUtil, RavensburgerApiHandler
 from APIScraping.UpdateCheckResult import ChangeType, UpdateCheckResult
 from OCR import OcrCacheHandler
 from OutputGeneration import DataFilesGenerator
+from util.FormatCoconutCard import FormatCoconutCard
 
 
 _logger = logging.getLogger("LorcanaJSON")
 
-def checkForNewCardData(newCardCatalog: Dict = None, fieldsToIgnore: List[str] = None, includeCardChanges: bool = True, ignoreOrderChanges: bool = True) -> UpdateCheckResult:
+def checkForNewCardData(newCardCatalog: Optional[Dict] = None, fieldsToIgnore: Optional[List[str]] = None, includeCardChanges: bool = True, ignoreOrderChanges: bool = True) -> UpdateCheckResult:
 	# We need to find the old cards by ID, so set up a dict
 	oldCards: Dict[int, Dict] = {}
+	oldCoconutCardsByNumber: Dict[int, FormatCoconutCard] = {}
 	# Keep track of known card fields, so we can notice if new cards add new fields
 	knownCardFieldNames: List[str] = []
 	knownVariantFieldNames: List[str] = []
-	oldCardCatalog: Dict = None
+	oldCardCatalog: Optional[Dict] = None
 	pathToCardCatalog = os.path.join("downloads", "json", f"carddata.{GlobalConfig.language.code}.json")
 	if os.path.isfile(pathToCardCatalog):
 		with open(pathToCardCatalog, "r") as cardCatalogFile:
-			oldCardCatalog = json.load(cardCatalogFile)
+			oldCardCatalog: Dict = json.load(cardCatalogFile)
 		for cardtype, cardlist in oldCardCatalog["cards"].items():
 			for cardIndex in range(len(cardlist)):
-				card = cardlist.pop()
+				card: Dict = cardlist.pop()
 				if GlobalConfig.language.uppercaseCode not in card["card_identifier"]:
 					continue
 				cardId = card["culture_invariant_id"]
@@ -37,12 +39,19 @@ def checkForNewCardData(newCardCatalog: Dict = None, fieldsToIgnore: List[str] =
 						for fieldName in variant:
 							if fieldName not in knownVariantFieldNames:
 								knownVariantFieldNames.append(fieldName)
+		if "coconut_cards" in oldCardCatalog:
+			for oldCoconutCardData in oldCardCatalog["coconut_cards"]:
+				oldCoconutCard = FormatCoconutCard(oldCoconutCardData)
+				if oldCoconutCard.number in oldCoconutCardsByNumber:
+					_logger.error(f"Duplicate coconut card number '{oldCoconutCard.number} in old card catalog")
+				else:
+					oldCoconutCardsByNumber[oldCoconutCard.number] = oldCoconutCard
 	else:
 		_logger.info("No card catalog stored, so full update is needed")
 
 	# Get the new card catalog, if needed
 	if not newCardCatalog:
-		newCardCatalog = RavensburgerApiHandler.retrieveCardCatalog()
+		newCardCatalog: Dict = RavensburgerApiHandler.retrieveCardCatalog()
 
 	# Now go through all the new cards and see if the card exists in the old list, and if so, if the values are the same
 	updateCheckResult: UpdateCheckResult = UpdateCheckResult()
@@ -65,7 +74,7 @@ def checkForNewCardData(newCardCatalog: Dict = None, fieldsToIgnore: List[str] =
 							knownVariantFieldNames.append(fieldName)
 			elif includeCardChanges:
 				# Remove the card from the old card dictionary, so we know which ones are left over (if any)
-				oldCard = oldCards.pop(cardId)
+				oldCard: Dict = oldCards.pop(cardId)
 				if not fieldsToIgnore or ("image_urls" not in fieldsToIgnore and "variants" not in fieldsToIgnore):
 					# Specifically check for image URLs, because if the checksum changed, we may need to redownload it
 					imageUrl = None
@@ -168,6 +177,24 @@ def checkForNewCardData(newCardCatalog: Dict = None, fieldsToIgnore: List[str] =
 				if fieldName not in newCardCatalog:
 					updateCheckResult.removedTopLevelFields.append(fieldName)
 
+		# Check if the Coconut cards have changed
+		if oldCoconutCardsByNumber and "coconut_cards" not in newCardCatalog:
+			for oldCoconutCardNumber, oldCoconutCard in oldCoconutCardsByNumber.items():
+				updateCheckResult.removedFormatCoconutCards.append(oldCoconutCard)
+		elif "coconut_cards" in newCardCatalog:
+			for newCoconutCardData in newCardCatalog["coconut_cards"]:
+				newCoconutCard = FormatCoconutCard(newCoconutCardData)
+				if newCoconutCard.number not in oldCoconutCardsByNumber:
+					updateCheckResult.newFormatCoconutCards.append(newCoconutCard)
+				else:
+					oldCoconutCard = oldCoconutCardsByNumber[newCoconutCard.number]
+					changedFields: List[str] = []
+					for fieldName, fieldValue in newCoconutCard.coconutData.items():
+						if fieldName not in oldCoconutCard.coconutData or oldCoconutCard.coconutData[fieldName] != fieldValue:
+							changedFields.append(fieldName)
+					if changedFields:
+						updateCheckResult.changedFormatCoconutCards[newCoconutCard] = changedFields
+
 		# The cardstore has a hash field too, since october 2025
 		if "catalog_hash" in oldCardCatalog and oldCardCatalog["catalog_hash"] != newCardCatalog["catalog_hash"] and not updateCheckResult.hasChanges():
 			_logger.warning("The new card catalog has a different catalog_hash than the old card catalog, but no changes were found")
@@ -178,23 +205,34 @@ def checkForNewCardData(newCardCatalog: Dict = None, fieldsToIgnore: List[str] =
 
 	return updateCheckResult
 
-def createOutputIfNeeded(onlyCreateOnNewCards: bool, cardFieldsToIgnore: List[str] = None, shouldShowImages: bool = False):
+def createOutputIfNeeded(onlyCreateOnNewCards: bool, cardFieldsToIgnore: Optional[List[str]] = None, shouldShowImages: bool = False):
 	cardCatalog = RavensburgerApiHandler.retrieveCardCatalog()
 	updateCheckResult: UpdateCheckResult = checkForNewCardData(cardCatalog, cardFieldsToIgnore, includeCardChanges=not onlyCreateOnNewCards)
-	if not updateCheckResult.hasCardChanges():
+	if not updateCheckResult.hasChanges():
 		_logger.info(f"No card updates, not running output generator")
 		return
 	_logger.info(f"Found {updateCheckResult.listChangeCounts()}")
 	idsToParse = [card.id for card in updateCheckResult.newCards]
 	idsToParse.extend([card.id for card in updateCheckResult.changedCards])
 	# Not all possible image changes are actual changes, update only the changed images
-	if updateCheckResult.possibleChangedImages:
-		actualImageChanges = RavensburgerApiHandler.downloadImagesIfUpdated(cardCatalog, [card.id for card in updateCheckResult.possibleChangedImages])
+	if updateCheckResult.possibleChangedImages or updateCheckResult.changedFormatCoconutCards:
+		actualImageChanges, actualChangedFormatCoconutCards = RavensburgerApiHandler.downloadImagesIfUpdated(cardCatalog, [card.id for card in updateCheckResult.possibleChangedImages], list(updateCheckResult.changedFormatCoconutCards))
 		_logger.info(f"{len(actualImageChanges):,} actual image changes: {actualImageChanges}")
 		if actualImageChanges:
-			_logger.info("Image(s) changed, skipping using OCR cache for these images")
+			_logger.info("Image(s) changed, removing OCR cache for these images")
 			OcrCacheHandler.clearOcrCacheForCards(actualImageChanges)
 		idsToParse.extend(actualImageChanges)
+		if actualChangedFormatCoconutCards:
+			changedCoconutCardIdentifiers: List[str] = [c.getOcrIdentifier() for c in actualChangedFormatCoconutCards]
+			_logger.info(f"{len(actualChangedFormatCoconutCards):,} Format Coconut cards have changed image data, removing OCR cache for these cards: {actualChangedFormatCoconutCards}")
+			OcrCacheHandler.clearOcrCacheForCards(changedCoconutCardIdentifiers)
+	if updateCheckResult.removedFormatCoconutCards:
+		coconutOcrIdentifiersToClear: List[str] = [c.getOcrIdentifier() for c in updateCheckResult.removedFormatCoconutCards]
+		_logger.info(f"{len(updateCheckResult.removedFormatCoconutCards):,} Format Coconut cards have been removed, removing OCR cache for these cards: {coconutOcrIdentifiersToClear}")
+		OcrCacheHandler.clearOcrCacheForCards(coconutOcrIdentifiersToClear)
+	if GlobalConfig.limitedBuild and (updateCheckResult.newFormatCoconutCards or updateCheckResult.changedFormatCoconutCards or updateCheckResult.removedFormatCoconutCards):
+		_logger.info("Format Coconut cards were added, changed, or removed. Overriding 'limited build' to False so the Format Coconut file gets rebuilt")
+		GlobalConfig.limitedBuild = False
 	_logger.info(f"Updated IDs: {' '.join([str(i) for i in sorted(idsToParse)])}")
 	ApiScrapingUtil.saveCardCatalog(cardCatalog)
 	RavensburgerApiHandler.downloadImages()

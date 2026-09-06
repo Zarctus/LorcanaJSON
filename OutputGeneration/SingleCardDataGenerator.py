@@ -1,5 +1,5 @@
 import logging, re
-from typing import Dict, List, Optional, Tuple, Union
+from typing import cast, Dict, List, Optional, Tuple, Union
 
 import GlobalConfig
 from APIScraping.ExternalLinksHandler import ExternalLinksHandler
@@ -11,6 +11,9 @@ from OutputGeneration.RelatedCardsCollator import RelatedCards
 from OutputGeneration.PromoSourceHandler import PromoSourceHandler
 from OutputGeneration.StoryParser import StoryParser
 from util import CardUtil, IdentifierParser, Language, LorcanaSymbols
+from util.typedDicts.Ability import Ability
+from util.typedDicts.Images import Images
+from util.typedDicts.OutputCard import HistoricDataEntry, OutputCard
 
 _logger = logging.getLogger("LorcanaJSON")
 _CARD_CODE_LOOKUP = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -40,10 +43,10 @@ _DOUBLE_WORD_SUBTYPES: Dict[Language.Language, Dict[str, str]] = {
 }
 
 
-def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler: ExternalLinksHandler, relatedCards: RelatedCards, cardDataCorrections: Dict, storyParser: StoryParser,
-					historicData: Optional[List[Dict]],	allowedCardsHandler: AllowedInFormatsHandler, promoSourceHandler: PromoSourceHandler, artistsHandler: ArtistsHandler) -> Optional[Dict]:
+def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler: ExternalLinksHandler, relatedCards: RelatedCards, cardDataCorrections: Optional[Dict], storyParser: StoryParser,
+					historicData: Optional[List[HistoricDataEntry]],	allowedCardsHandler: AllowedInFormatsHandler, promoSourceHandler: PromoSourceHandler, artistsHandler: ArtistsHandler) -> Optional[OutputCard]:
 	# Store some default values
-	outputCard: Dict[str, Union[str, int, List, Dict]] = {
+	outputCard: OutputCard = {
 		"id": inputCard["culture_invariant_id"],
 		"inkwell": inputCard["ink_convertible"],
 		"rarity": GlobalConfig.translation[inputCard["rarity"]],
@@ -55,18 +58,23 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 		parsedIdentifier = IdentifierParser.parseIdentifier(inputCard["card_identifier"])
 
 	if ocrResult.identifier and (ocrResult.identifier.startswith("0") or "TFC" in ocrResult.identifier or GlobalConfig.language.uppercaseCode not in ocrResult.identifier):
-		outputCard["fullIdentifier"] = re.sub(fr" ?\W (?!$)", LorcanaSymbols.SEPARATOR_STRING, ocrResult.identifier)
-		outputCard["fullIdentifier"] = outputCard["fullIdentifier"].replace("I", "/").replace("1P ", "/P ").replace("//", "/").replace(".", "").replace("1TFC", "1 TFC").rstrip(" —")
-		outputCard["fullIdentifier"] = re.sub(fr" ?[-+] ?", LorcanaSymbols.SEPARATOR_STRING, outputCard["fullIdentifier"])
+		fullIdentifier: str = re.sub(fr" ?\W (?!$)", LorcanaSymbols.SEPARATOR_STRING, ocrResult.identifier)
+		fullIdentifier = fullIdentifier.replace("I", "/").replace("1P ", "/P ").replace("//", "/").replace(".", "").replace("1TFC", "1 TFC").rstrip(" —")
+		fullIdentifier = re.sub(fr" ?[-+] ?", LorcanaSymbols.SEPARATOR_STRING, fullIdentifier)
 		if parsedIdentifier is None:
-			parsedIdentifier = IdentifierParser.parseIdentifier(outputCard["fullIdentifier"])
-	else:
+			parsedIdentifier = IdentifierParser.parseIdentifier(fullIdentifier)
+		outputCard["fullIdentifier"] = fullIdentifier
+	elif parsedIdentifier is not None:
 		outputCard["fullIdentifier"] = str(parsedIdentifier)
 	if GlobalConfig.language.uppercaseCode not in outputCard["fullIdentifier"]:
 		_logger.info(f"Card ID {outputCard['id']} ({outputCard['fullIdentifier']}) is not in current language '{GlobalConfig.language.englishName}', skipping")
 		return None
+
+	if parsedIdentifier is None:
+		raise ValueError(f"Unable to determine parsed identifier of card {CardUtil.createCardIdentifier(inputCard)}")
+
 	# Set the grouping ('P1', 'D23', etc) for promo cards
-	if parsedIdentifier and parsedIdentifier.isPromo():
+	if parsedIdentifier.isPromo():
 		outputCard["promoGrouping"] = parsedIdentifier.grouping
 		outputCard["rarity"] = GlobalConfig.translation.SPECIAL
 
@@ -100,11 +108,17 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 	if ocrResult.artistsText != outputCard["artistsText"]:
 		_logger.info(f"Corrected artist name from {ocrResult.artistsText!r} to {outputCard['artistsText']!r} in card {CardUtil.createCardIdentifier(inputCard)}")
 
-	try:
-		outputCard["cost"] = inputCard["ink_cost"] if "ink_cost" in inputCard else int(ocrResult.cost)
-	except Exception as e:
-		_logger.error(f"Unable to parse {ocrResult.cost!r} as card cost in card ID {outputCard['id']}; Exception {type(e).__name__}: {e}")
-		outputCard["cost"] = -1
+	if "ink_cost" in inputCard:
+		outputCard["cost"] = inputCard["ink_cost"]
+	elif ocrResult.cost:
+		try:
+			outputCard["cost"] = int(ocrResult.cost)
+		except Exception as e:
+			_logger.error(f"Unable to parse {ocrResult.cost!r} as card cost in card ID {outputCard['id']}; Exception {type(e).__name__}: {e}")
+			outputCard["cost"] = -1
+	else:
+		raise ValueError(f"Unable to determine ink cost of card {CardUtil.createOutputCardIdentifier(outputCard)}: no 'ink_cost' in input card and no 'cost' in OCR result")
+
 	if "quest_value" in inputCard:
 		outputCard["lore"] = inputCard["quest_value"]
 	for inputFieldName, outputFieldName in (("move_cost", "moveCost"), ("strength", "strength"), ("willpower", "willpower")):
@@ -119,10 +133,11 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 
 	# Determine the various image data (normal, foil, varnish, etc)
 	if "variants" in inputCard:
-		outputImageData: Dict[str, str] = {}
-		normalImageUrl = None
+		outputImageData: Images = {}
+		normalImageUrl: Optional[str] = None
 		foilTypes: List[str] = []
-		varnishType = None
+		varnishType: Optional[str] = None
+		foilEffectColors: List[str] = []
 		for inputImageVariantData in inputCard["variants"]:
 			imageType = inputImageVariantData["variant_id"]
 			if imageType == "Regular":
@@ -134,13 +149,20 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 				if "foil_top_layer_mask_url" in inputImageVariantData:
 					# Despite being called 'foil', this is the varnish mask; foil data is in a different ImageVariant dictionary
 					outputImageData["varnishMask"] = _cleanUrl(inputImageVariantData["foil_top_layer_mask_url"])
+				if "second_foil_top_layer_mask_url" in inputImageVariantData:
+					# Some Iconic cards have a second varnish mask
+					outputImageData["varnishMask2"] = _cleanUrl(inputImageVariantData["second_foil_top_layer_mask_url"])
 				foilTypes.append(inputImageVariantData.get("foil_type", "None"))
 				if "foil_top_layer" in inputImageVariantData:
 					varnishType = inputImageVariantData["foil_top_layer"]
+				if "hot_foil_color" in inputImageVariantData:
+					foilEffectColors.append(inputImageVariantData["hot_foil_color"])
+				if "second_hot_foil_color" in inputImageVariantData:
+					foilEffectColors.append(inputImageVariantData["second_hot_foil_color"])
 			elif imageType == "Foiled":
 				# Foil version
 				if "foilMask" in outputImageData:
-					_logger.warning(f"'Foiled' image data of {CardUtil.createCardIdentifier(outputCard)} contains a foil mask, but it was already set")
+					_logger.warning(f"'Foiled' image data of {CardUtil.createOutputCardIdentifier(outputCard)} contains a foil mask, but it was already set")
 				else:
 					outputImageData["foilMask"] = inputImageVariantData["foil_mask_url"]
 				if normalImageUrl and inputImageVariantData["detail_image_url"] != normalImageUrl:
@@ -151,16 +173,16 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 					if varnishType is None:
 						varnishType = inputImageVariantData["foil_top_layer"]
 					elif varnishType != inputImageVariantData["foil_top_layer"]:
-						_logger.warning(f"Varnish type is both '{varnishType}' and '{inputImageVariantData['foil_top_layer']}' in card {CardUtil.createCardIdentifier(outputCard)}; Keeping '{varnishType}'")
+						_logger.warning(f"Varnish type is both '{varnishType}' and '{inputImageVariantData['foil_top_layer']}' in card {CardUtil.createOutputCardIdentifier(outputCard)}; Keeping '{varnishType}'")
 			elif imageType == "StarterFoil":
 				# Foiling for the signature cards in a starter deck. It should use the same image URLs as the 'nromal' foil version
 				if "foilMask" in outputImageData and inputImageVariantData["foil_mask_url"] != outputImageData["foilMask"]:
-					_logger.warning(f"Different foil mask for 'normal' foil and Starter foil in card {CardUtil.createCardIdentifier(outputCard)}")
+					_logger.warning(f"Different foil mask for 'normal' foil and Starter foil in card {CardUtil.createOutputCardIdentifier(outputCard)}")
 				if "full" in outputImageData and inputImageVariantData["detail_image_url"] != outputImageData["full"]:
-					_logger.warning(f"Different normal image between base card and Starter in card {CardUtil.createCardIdentifier(outputCard)}")
+					_logger.warning(f"Different normal image between base card and Starter in card {CardUtil.createOutputCardIdentifier(outputCard)}")
 				foilTypes.append(inputImageVariantData["foil_type"])
 			else:
-				_logger.warning(f"Unknown variant id {imageType!r} in card {CardUtil.createCardIdentifier(outputCard)}")
+				_logger.warning(f"Unknown variant id {imageType!r} in card {CardUtil.createOutputCardIdentifier(outputCard)}")
 
 		if foilTypes:
 			outputCard["foilTypes"] = foilTypes
@@ -170,19 +192,21 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 			outputCard["foilTypes"] = ["None", "Silver"]
 		if varnishType:
 			outputCard["varnishType"] = varnishType
+		if foilEffectColors:
+			outputCard["foilEffectColors"] = foilEffectColors
 		if "thumbnail_url" in inputCard:
 			outputImageData["thumbnail"] = _cleanUrl(inputCard["thumbnail_url"])
 		else:
-			_logger.warning(f"Missing thumbnail URL for {CardUtil.createCardIdentifier(outputCard)}")
+			_logger.warning(f"Missing thumbnail URL for {CardUtil.createOutputCardIdentifier(outputCard)}")
 		if outputImageData:
-			outputImageData = {key: outputImageData[key] for key in sorted(outputImageData)}
+			outputImageData: Images = {key: outputImageData[key] for key in sorted(outputImageData)}
 			outputCard["images"] = outputImageData
 		else:
-			_logger.error(f"Unable to determine any images for {CardUtil.createCardIdentifier(outputCard)}")
+			_logger.error(f"Unable to determine any images for {CardUtil.createOutputCardIdentifier(outputCard)}")
 	elif "imageUrl" in inputCard:
-		outputCard["images"] = {"full": inputCard["imageUrl"]}
+		outputCard["images"] = cast(Images, {"full": inputCard["imageUrl"]})
 	else:
-		_logger.error(f"Card {CardUtil.createCardIdentifier(outputCard)} does not contain any image URLs")
+		_logger.error(f"Card {CardUtil.createOutputCardIdentifier(outputCard)} does not contain any image URLs")
 
 	# Store relations to other cards, like the link from Enchanted and Promo cards to their base version
 	_parseRelatedCards(relatedCards, parsedIdentifier, outputCard)
@@ -210,7 +234,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 			flavorText = flavorText.replace("\nInschrift", "\n—Inschrift")
 		outputCard["flavorText"] = flavorText
 
-	abilities: List[Dict[str, str]] = []
+	abilities: List[Ability] = []
 	effects: List[str] = []
 	if ocrResult.remainingText:
 		remainingText = ocrResult.remainingText.lstrip("“‘").rstrip(" \n|")
@@ -228,11 +252,13 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 
 		for remainingTextLine in remainingTextLines:
 			remainingTextLine = TextCorrection.correctText(TextCorrection.correctPunctuation(remainingTextLine)).replace("‘", "")
+			# Sometimes it leaves junk characters after a keyword ability
+			remainingTextLine = re.sub(f"^([A-Z][a-z]+ \\d( [{LorcanaSymbols.INK}OQ])?) [^{LorcanaSymbols.INK}]$", "\\1", remainingTextLine, flags=re.MULTILINE)
 			if len(remainingTextLine) < 4:
-				_logger.info(f"Remaining text for card {CardUtil.createCardIdentifier(outputCard)} {remainingTextLine!r} is too short, discarding")
+				_logger.info(f"Remaining text for card {CardUtil.createOutputCardIdentifier(outputCard)} {remainingTextLine!r} is too short, discarding")
 				continue
 			if not re.search(r"\w{3,}", remainingTextLine):
-				_logger.info(f"Remaining text line {remainingTextLine!r} for card {CardUtil.createCardIdentifier(outputCard)} doesn't seem to contain any words, discarding")
+				_logger.info(f"Remaining text line {remainingTextLine!r} for card {CardUtil.createOutputCardIdentifier(outputCard)} doesn't seem to contain any words, discarding")
 				continue
 			# Check if this is a keyword ability
 			if outputCard["type"] == GlobalConfig.translation.Item:
@@ -295,7 +321,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 				abilityName = re.sub(r"\bCA\b", "ÇA", abilityName)
 				abilityName = re.sub(r"\bCAVA\b", "ÇA VA", abilityName)
 				abilityName = re.sub(r"\bTRES\b", "TRÈS", abilityName)
-				abilityName = re.sub(r"\bJY\b","J'Y", abilityName)
+				abilityName = re.sub(r"\bJY\b", "J'Y", abilityName)
 			elif GlobalConfig.language == Language.GERMAN:
 				# It seems to misread a lot of ability names as ending with a period, correct that (unless it's ellipsis)
 				if abilityName.endswith(".") and not abilityName.endswith("..."):
@@ -316,7 +342,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 					#  Also correct ellipses to not have spaces inbetween the periods; and sometimes ability names have double spaces so correct those to single ones
 					inputAbilityNames: List[str] = [re.sub(r" ?\.\s\.\s\.\s?", "...", s.replace("  ", " ").upper()) for s in re.findall(r"\\([^\\]+)\\", inputCard["rules_text"])]
 				if abilityIndex >= len(inputAbilityNames):
-					_logger.error(f"Trying to read input ability name index {abilityIndex} but there are only {len(inputAbilityNames)} names, while {len(ocrResult.abilityLabels)} were expected, in card {CardUtil.createCardIdentifier(outputCard)}")
+					_logger.error(f"Trying to read input ability name index {abilityIndex} but there are only {len(inputAbilityNames)} names, while {len(ocrResult.abilityLabels)} were expected, in card {CardUtil.createOutputCardIdentifier(outputCard)}")
 				else:
 					inputAbilityName: str = inputAbilityNames[abilityIndex]
 					characterMismatchCount: int = 0
@@ -330,7 +356,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 							# Sometimes Ravensburger set a wrong ability name. Check for that, so we don't add spaces from a different sentence
 							characterMismatchCount += 1
 							if characterMismatchCount == 4:
-								_logger.info(f"Too many characters mismatch between input ability name {inputAbilityName} and output {abilityName} in card {CardUtil.createCardIdentifier(outputCard)}, aborting missing-spaces check")
+								_logger.info(f"Too many characters mismatch between input ability name {inputAbilityName} and output {abilityName} in card {CardUtil.createOutputCardIdentifier(outputCard)}, aborting missing-spaces check")
 								abilityName = abilityNameBeforeSpaceCorrection
 								break
 			if abilityName != originalAbilityName:
@@ -363,7 +389,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 					ability = abilities[abilityIndex]
 					oldAbilityText = ability[abilityFieldName]
 					ability[abilityFieldName] = ability[abilityFieldName][:symbolPosition] + symbol + ability[abilityFieldName][symbolPosition+1:]
-					_logger.debug(f"Correcting ability text at index {abilityIndex} from {oldAbilityText!r} to {ability[abilityFieldName]!r} in card {CardUtil.createCardIdentifier(outputCard)}")
+					_logger.debug(f"Correcting ability text at index {abilityIndex} from {oldAbilityText!r} to {ability[abilityFieldName]!r} in card {CardUtil.createOutputCardIdentifier(outputCard)}")
 
 	if abilities:
 		outputCard["abilities"] = abilities
@@ -378,15 +404,15 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 	fullTextCorrection: Optional[List[str]] = None  # Since the fullText gets created as the last step, if there is a correction for it, save it for later
 	forceAbilityTypeAtIndex: Dict[int, str] = {}  # index to ability type
 	newlineAfterLabelIndex: int = -1
-	moveAbilityAtIndexToIndex: Optional[List[int, int]] = None
+	moveAbilityAtIndexToIndex: Optional[List[int]] = None
 	skipFullTextSectionMergeAtIndex: List[int] = []
 	if cardDataCorrections:
 		if cardDataCorrections.pop("_moveKeywordsLast", False):
 			if "abilities" not in outputCard or "effect" not in outputCard["abilities"][-1]:
-				raise KeyError(f"Correction to move keywords last is set for card {CardUtil.createCardIdentifier(outputCard)}, but no 'abilities' field exists or the last ability doesn't have an 'effect'")
+				raise KeyError(f"Correction to move keywords last is set for card {CardUtil.createOutputCardIdentifier(outputCard)}, but no 'abilities' field exists or the last ability doesn't have an 'effect'")
 			# Normally keyword abilities come before named abilities, except on some cards (e.g. 'Madam Mim - Fox' (ID 262))
 			# Correct that by removing the keyword ability text from the last named ability text, and adding it as an ability
-			lastAbility: Dict[str, str] = outputCard["abilities"][-1]
+			lastAbility = outputCard["abilities"][-1]
 			lastAbilityText = lastAbility["effect"]
 			keywordMatch = re.search(r"\n([A-ZÀ][^.]+)(?= \()", lastAbilityText)
 			if keywordMatch:
@@ -395,7 +421,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 				lastAbility["effect"] = lastAbilityText[:keywordMatch.start()]
 				outputCard["abilities"].append({"type": "keyword", "fullText": keywordText})
 			else:
-				_logger.error(f"'_moveKeywordsLast' set but keyword couldn't be found for card {CardUtil.createCardIdentifier(outputCard)}")
+				_logger.error(f"'_moveKeywordsLast' set but keyword couldn't be found for card {CardUtil.createOutputCardIdentifier(outputCard)}")
 		if "_insertAbilityAtIndex" in cardDataCorrections:
 			if "abilities" not in outputCard:
 				outputCard["abilities"]: List[Dict] = []
@@ -403,7 +429,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 			while insertAbilityData:
 				insertAbilityIndex = insertAbilityData.pop(0)
 				insertAbilityText = insertAbilityData.pop(0)
-				_logger.info(f"Inserting ability {insertAbilityText!r} at index {insertAbilityIndex} in card {CardUtil.createCardIdentifier(outputCard)}")
+				_logger.info(f"Inserting ability {insertAbilityText!r} at index {insertAbilityIndex} in card {CardUtil.createOutputCardIdentifier(outputCard)}")
 				outputCard["abilities"].insert(insertAbilityIndex, {"effect": insertAbilityText, "fullText": insertAbilityText})
 				if insertAbilityData and isinstance(insertAbilityData[0], str):
 					outputCard["abilities"][insertAbilityIndex]["name"] = insertAbilityData.pop(0)
@@ -411,69 +437,69 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 		if "_removeAbilitiesAtIndexes" in cardDataCorrections:
 			removeAbilitiesAtIndexes = cardDataCorrections.pop("_removeAbilitiesAtIndexes")
 			if "abilities" not in outputCard:
-				_logger.warning(f"Correction to remove ability from {CardUtil.createCardIdentifier(outputCard)} but card doesn't have abilities")
+				_logger.warning(f"Correction to remove ability from {CardUtil.createOutputCardIdentifier(outputCard)} but card doesn't have abilities")
 				removeAbilitiesAtIndexes = None
 		removeEffectsAtIndexes: Optional[List[int]] = None
 		if "_removeEffectsAtIndexes" in cardDataCorrections:
 			removeEffectsAtIndexes = cardDataCorrections.pop("_removeEffectsAtIndexes")
 			if "effects" not in outputCard:
-				_logger.warning(f"Correction to remove effect from {CardUtil.createCardIdentifier(outputCard)} but card doesn't have effects")
+				_logger.warning(f"Correction to remove effect from {CardUtil.createOutputCardIdentifier(outputCard)} but card doesn't have effects")
 				removeEffectsAtIndexes = None
 		for correctionAbilityField, abilityTypeCorrection in _ABILITY_TYPE_CORRECTION_FIELD_TO_ABILITY_TYPE.items():
 			if correctionAbilityField in cardDataCorrections:
 				abilityIndexToCorrect = cardDataCorrections.pop(correctionAbilityField)
 				if abilityIndexToCorrect in forceAbilityTypeAtIndex:
-					_logger.error(f"Ability at index {abilityIndexToCorrect} in card {CardUtil.createCardIdentifier(outputCard)} is being corrected to two types: '{forceAbilityTypeAtIndex[abilityIndexToCorrect]}' and '{abilityTypeCorrection}'")
+					_logger.error(f"Ability at index {abilityIndexToCorrect} in card {CardUtil.createOutputCardIdentifier(outputCard)} is being corrected to two types: '{forceAbilityTypeAtIndex[abilityIndexToCorrect]}' and '{abilityTypeCorrection}'")
 				forceAbilityTypeAtIndex[abilityIndexToCorrect] = abilityTypeCorrection
-		addNameToAbilityAtIndex: Optional[List[Union[int, str]]] = cardDataCorrections.pop("_addNameToAbilityAtIndex", None)
-		effectAtIndexIsAbility: Union[int, List] = cardDataCorrections.pop("_effectAtIndexIsAbility", -1)
+		addNameToAbilityAtIndex: Optional[Tuple[int, str]] = cardDataCorrections.pop("_addNameToAbilityAtIndex", None)
+		effectAtIndexIsAbility: Union[int, List[Union[int, str]]] = cardDataCorrections.pop("_effectAtIndexIsAbility", -1)
 		effectAtIndexIsFlavorText: int = cardDataCorrections.pop("_effectAtIndexIsFlavorText", -1)
 		externalLinksCorrection: Optional[List[str]] = cardDataCorrections.pop("externalLinks", None)
 		fullTextCorrection: Optional[List[str]] = cardDataCorrections.pop("fullText", None)
 		mergeEffectIndexWithPrevious: int = cardDataCorrections.pop("_mergeEffectIndexWithPrevious", -1)
 		moveAbilityAtIndexToIndex: Optional[List[Union[int, int]]] = cardDataCorrections.pop("_moveAbilityAtIndexToIndex", None)
 		newlineAfterLabelIndex: int = cardDataCorrections.pop("_newlineAfterLabelIndex", -1)
-		skipFullTextSectionMergeAtIndex: List[int] = cardDataCorrections.pop("_skipFullTextSectionMergeAtIndex", [])
+		skipFullTextSectionMergeAtIndex: Union[int, List[int]] = cardDataCorrections.pop("_skipFullTextSectionMergeAtIndex", [])
 		if isinstance(skipFullTextSectionMergeAtIndex, int):
-			skipFullTextSectionMergeAtIndex = [skipFullTextSectionMergeAtIndex]
-		splitAbilityNameAtIndex: Optional[List[Union[int, str]]] = cardDataCorrections.pop("_splitAbilityNameAtIndex", None)
+			skipFullTextSectionMergeAtIndex: List[int] = [skipFullTextSectionMergeAtIndex]
+		splitAbilityNameAtIndex: Optional[Tuple[int, str]] = cardDataCorrections.pop("_splitAbilityNameAtIndex", None)
 		for fieldName, correctionList in cardDataCorrections.items():
 			TextCorrection.correctCardFieldFromList(outputCard, fieldName, correctionList)
 		# If newlines got added through a correction, we may need to split the ability or effect in two
 		if "abilities" in outputCard and ("abilities" in cardDataCorrections or removeAbilitiesAtIndexes):
 			for abilityIndex in range(len(outputCard["abilities"]) - 1, -1, -1):
 				if removeAbilitiesAtIndexes and abilityIndex in removeAbilitiesAtIndexes:
-					_logger.info(f"Removing ability at index {abilityIndex} in card {CardUtil.createCardIdentifier(outputCard)}")
+					_logger.info(f"Removing ability at index {abilityIndex} in card {CardUtil.createOutputCardIdentifier(outputCard)}")
 					outputCard["abilities"].pop(abilityIndex)
 					continue
 				ability = outputCard["abilities"][abilityIndex]
 				abilityTextFieldName = "fullText" if "fullText" in ability else "effect"
 				if not ability[abilityTextFieldName]:
-					_logger.info(f"Removing empty ability at index {abilityIndex} in card {CardUtil.createCardIdentifier(outputCard)}")
+					_logger.info(f"Removing empty ability at index {abilityIndex} in card {CardUtil.createOutputCardIdentifier(outputCard)}")
 					outputCard["abilities"].pop(abilityIndex)
 					continue
 				while "\n\n" in ability[abilityTextFieldName]:
 					# We need to split this ability in two
-					_logger.info(f"Splitting ability at index {abilityIndex} in two because it has a double newline, in card {CardUtil.createCardIdentifier(outputCard)}")
+					_logger.info(f"Splitting ability at index {abilityIndex} in two because it has a double newline, in card {CardUtil.createOutputCardIdentifier(outputCard)}")
 					firstAbilityTextPart, secondAbilityTextPart = ability[abilityTextFieldName].rsplit("\n\n", 1)
 					ability[abilityTextFieldName] = firstAbilityTextPart
 					outputCard["abilities"].insert(abilityIndex + 1, {"effect": secondAbilityTextPart})
 		if "effects" in outputCard and ("effects" in cardDataCorrections or removeEffectsAtIndexes):
 			for effectIndex in range(len(outputCard["effects"]) - 1, -1, -1):
 				while "\n\n" in outputCard["effects"][effectIndex]:
-					_logger.info(f"Splitting effect at index {effectIndex} in two because it has a double newline, in card {CardUtil.createCardIdentifier(outputCard)}")
+					_logger.info(f"Splitting effect at index {effectIndex} in two because it has a double newline, in card {CardUtil.createOutputCardIdentifier(outputCard)}")
 					firstEffect, secondEffect = outputCard["effects"][effectIndex].rsplit("\n\n", 1)
 					outputCard["effects"][effectIndex] = firstEffect
 					outputCard["effects"].insert(effectIndex + 1, secondEffect)
 			# Splitting effects may lead to one or more effects being a keyword ability instead, correct that
 			for effectIndex in range(len(outputCard["effects"]) - 1, -1, -1):
 				if removeEffectsAtIndexes and effectIndex in removeEffectsAtIndexes:
-					_logger.info(f"Removing effect at index {effectIndex} in card {CardUtil.createCardIdentifier(outputCard)}")
+					_logger.info(f"Removing effect at index {effectIndex} in card {CardUtil.createOutputCardIdentifier(outputCard)}")
 					outputCard["effects"].pop(effectIndex)
 					continue
 				effectText = outputCard["effects"][effectIndex]
 				if _KEYWORD_REGEX.match(effectText) or _KEYWORD_REGEX_WITHOUT_REMINDER.match(effectText):
-					_logger.info(f"Effect at index {effectIndex} is a keyword ability, moving it to 'abilities', in card {CardUtil.createCardIdentifier(outputCard)}")
+					_logger.info(f"Effect at index {effectIndex} is a keyword ability, moving it to 'abilities', in card {CardUtil.createOutputCardIdentifier(outputCard)}")
 					outputCard["effects"].pop(effectIndex)
 					if "abilities" not in outputCard:
 						outputCard["abilities"] = []
@@ -482,74 +508,85 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 				del outputCard["effects"]
 		# Sometimes the ability name doesn't get recognised properly during fallback parsing, so there's a manual correction for it
 		if splitAbilityNameAtIndex:
-			ability: Dict[str, str] = outputCard["abilities"][splitAbilityNameAtIndex[0]]
+			ability = outputCard["abilities"][splitAbilityNameAtIndex[0]]
 			ability["name"], ability["effect"] = re.split(splitAbilityNameAtIndex[1], ability["effect"], maxsplit=1)
 			_logger.info(f"Split ability name and effect at index {splitAbilityNameAtIndex[0]} into name {ability['name']!r} and effect {ability['effect']!r}")
 		# Sometimes ability names get missed, apply the correction to fix this
 		if addNameToAbilityAtIndex:
 			if addNameToAbilityAtIndex[0] >= len(outputCard["abilities"]):
-				_logger.error(f"Supplied name '{addNameToAbilityAtIndex[1]}' to add to ability at index {addNameToAbilityAtIndex[0]} of card {CardUtil.createCardIdentifier(outputCard)}, but there are only {len(outputCard['abilities'])} abilities")
+				_logger.error(f"Supplied name '{addNameToAbilityAtIndex[1]}' to add to ability at index {addNameToAbilityAtIndex[0]} of card {CardUtil.createOutputCardIdentifier(outputCard)}, but there are only {len(outputCard['abilities'])} abilities")
 			elif outputCard["abilities"][addNameToAbilityAtIndex[0]].get("name", None):
-				_logger.error(f"Supplied name '{addNameToAbilityAtIndex[1]}' to add to ability at index {addNameToAbilityAtIndex[0]} of card {CardUtil.createCardIdentifier(outputCard)}, but ability already has name '{outputCard['abilities'][addNameToAbilityAtIndex[0]]['name']}'")
+				_logger.error(f"Supplied name '{addNameToAbilityAtIndex[1]}' to add to ability at index {addNameToAbilityAtIndex[0]} of card {CardUtil.createOutputCardIdentifier(outputCard)}, but ability already has name '{outputCard['abilities'][addNameToAbilityAtIndex[0]]['name']}'")
 			else:
-				_logger.info(f"Adding ability name '{addNameToAbilityAtIndex[1]}' to ability index {addNameToAbilityAtIndex[0]} for card {CardUtil.createCardIdentifier(outputCard)}")
+				_logger.info(f"Adding ability name '{addNameToAbilityAtIndex[1]}' to ability index {addNameToAbilityAtIndex[0]} for card {CardUtil.createOutputCardIdentifier(outputCard)}")
 				ability = outputCard["abilities"][addNameToAbilityAtIndex[0]]
 				ability["name"] = addNameToAbilityAtIndex[1]
 				if ability["effect"].startswith(addNameToAbilityAtIndex[1]):
-					_logger.info(f"Ability effect already started with ability name, removing, from card {CardUtil.createCardIdentifier(outputCard)}")
+					_logger.info(f"Ability effect already started with ability name, removing, from card {CardUtil.createOutputCardIdentifier(outputCard)}")
 					ability["effect"] = ability["effect"][len(addNameToAbilityAtIndex[1])+1:]
 
 		# Merge effects if requested
 		# Do this before potentially moving effects to abilities, so the merged effect moves instead of just the first part
 		if "effects" in outputCard and mergeEffectIndexWithPrevious > -1:
-			_logger.info(f"Merging effect index {mergeEffectIndexWithPrevious} with previous index for card {CardUtil.createCardIdentifier(outputCard)}")
+			_logger.info(f"Merging effect index {mergeEffectIndexWithPrevious} with previous index for card {CardUtil.createOutputCardIdentifier(outputCard)}")
 			outputCard["effects"][mergeEffectIndexWithPrevious - 1] += "\n" + outputCard["effects"].pop(mergeEffectIndexWithPrevious)
 
 		# Do this after the general corrections since one of those might add or split an effect
 		if effectAtIndexIsAbility != -1:
 			if "effects" not in outputCard:
-				_logger.error(f"Correction to move effect index {effectAtIndexIsAbility} to abilities, but card {CardUtil.createCardIdentifier(outputCard)} doesn't have an 'effects' field")
+				_logger.error(f"Correction to move effect index {effectAtIndexIsAbility} to abilities, but card {CardUtil.createOutputCardIdentifier(outputCard)} doesn't have an 'effects' field")
 			else:
 				if "abilities" not in outputCard:
 					outputCard["abilities"] = []
 				existingAbilityCount = len(outputCard["abilities"])
 				if isinstance(effectAtIndexIsAbility, int):
-					effectAtIndexIsAbility = [effectAtIndexIsAbility]
+					effectAtIndexIsAbility: List[int] = [effectAtIndexIsAbility]
 				while effectAtIndexIsAbility:
-					abilityNameForEffectIsAbility = effectAtIndexIsAbility.pop() if isinstance(effectAtIndexIsAbility[-1], str) else None
-					effectIndex = effectAtIndexIsAbility.pop()
+					abilityNameForEffectIsAbility: Optional[str] = cast(str, effectAtIndexIsAbility.pop()) if isinstance(effectAtIndexIsAbility[-1], str) else None
+					effectIndex: int = cast(int, effectAtIndexIsAbility.pop())
 					_logger.info(f"Moving effect index {effectIndex} to abilities")
 					abilityEffectText = outputCard["effects"].pop(effectIndex)
 					if abilityNameForEffectIsAbility and abilityEffectText.startswith(abilityNameForEffectIsAbility):
 						_logger.info(f"Removing duplicate label '{abilityNameForEffectIsAbility}' from start of ability effect")
 						abilityEffectText = abilityEffectText[len(abilityNameForEffectIsAbility) + 1:]
-					outputCard["abilities"].insert(existingAbilityCount,{"name": abilityNameForEffectIsAbility, "effect": abilityEffectText})
+					abilityFromEffect: Ability = {"effect": abilityEffectText}
+					if abilityNameForEffectIsAbility:
+						abilityFromEffect["name"] = abilityNameForEffectIsAbility
+					outputCard["abilities"].insert(existingAbilityCount, abilityFromEffect)
 				if len(outputCard["effects"]) == 0:
 					del outputCard["effects"]
 		if effectAtIndexIsFlavorText != -1:
 			if "effects" not in outputCard:
-				_logger.error(f"Correction to move effect index {effectAtIndexIsAbility} to flavor text, but card {CardUtil.createCardIdentifier(outputCard)} doesn't have an 'effects' field")
+				_logger.error(f"Correction to move effect index {effectAtIndexIsAbility} to flavor text, but card {CardUtil.createOutputCardIdentifier(outputCard)} doesn't have an 'effects' field")
 			elif "flavorText" in outputCard:
-				_logger.error(f"Correction to move effect index {effectAtIndexIsAbility} to flavor text, but card {CardUtil.createCardIdentifier(outputCard)} already has a 'flavorText' field")
+				_logger.error(f"Correction to move effect index {effectAtIndexIsAbility} to flavor text, but card {CardUtil.createOutputCardIdentifier(outputCard)} already has a 'flavorText' field")
 			else:
 				_logger.info(f"Moving effect index {effectAtIndexIsFlavorText} to flavor text")
 				outputCard["flavorText"] = TextCorrection.correctPunctuation(outputCard["effects"].pop(effectAtIndexIsFlavorText))
 				if len(outputCard["effects"]) == 0:
 					del outputCard["effects"]
 
+		if "subtypes" in cardDataCorrections:
+			# If a separator was added in a correction, it needs to be split into two subtypes
+			# Go end to start so we can insert a subtype after the current one if needed, without messing up iteration
+			for subtypeIndex in range(len(outputCard["subtypes"]) - 1, -1, -1):
+				while LorcanaSymbols.SEPARATOR_STRING in outputCard["subtypes"][subtypeIndex]:
+					shortenedSubtype, newSubtype = outputCard["subtypes"][subtypeIndex].rsplit(LorcanaSymbols.SEPARATOR_STRING, 1)
+					outputCard["subtypes"][subtypeIndex] = shortenedSubtype
+					outputCard["subtypes"].insert(subtypeIndex + 1, newSubtype)
 	# An effect should never start with a separator; if it does, join it with the previous effect since it should be part of its option list
 	# An effect also never starts with a number, also join that with the previous effect
 	if "effects" in outputCard:
 		for effectIndex in range(len(outputCard["effects"]) - 1, 0, -1):
 			if outputCard["effects"][effectIndex].startswith(LorcanaSymbols.SEPARATOR) or outputCard["effects"][effectIndex][0].isdigit():
-				_logger.debug(f"Joining effect at index {effectIndex} with previous one because it's erroneously split up, in card {CardUtil.createCardIdentifier(outputCard)}")
+				_logger.debug(f"Joining effect at index {effectIndex} with previous one because it's erroneously split up, in card {CardUtil.createOutputCardIdentifier(outputCard)}")
 				outputCard["effects"][effectIndex - 1] += "\n" + outputCard["effects"].pop(effectIndex)
 
 	# Now we can expand the ability fields with extra info, since it's all been corrected
 	keywordAbilities: List[str] = []
 	if "abilities" in outputCard:
 		for abilityIndex in range(len(outputCard["abilities"])):
-			ability: Dict = outputCard["abilities"][abilityIndex]
+			ability = outputCard["abilities"][abilityIndex]
 			if ability.get("type", None) == "keyword" or ("type" not in ability and not ability.get("name", None) and (_KEYWORD_REGEX.match(ability.get("fullText", ability["effect"])) or _KEYWORD_REGEX_WITHOUT_REMINDER.match(ability.get("fullText", ability["effect"])))):
 				# Clean up some mistakes from if an effect got corrected into a keyword ability
 				if "fullText" not in ability:
@@ -588,7 +625,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 							else:
 								# Give up; keep entire string as keyword, don't set value
 								_logger.warning(f"Unable to split keyword/value for {keyword!r}; treating entire string as keyword name")
-				elif len(keyword) >= 3 and keyword[-3].isnumeric():
+				elif len(keyword) >= 3 and keyword[-3].isnumeric() and keyword.count(" ") >= 2:
 					# From set 9 on, Shift gets written as "Shift x {ink}", check for that too
 					keyword, keywordValue, inkSymbol = keyword.rsplit(" ", 2)
 				elif ":" in keyword:
@@ -641,7 +678,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 						  re.match(r"(Ein|Zwei)mal\swährend\sdeines\sZuges\b", ability["effect"]) or ability["effect"].startswith("Einmal pro Zug, wenn") or
 						  re.search(r"(^Z|\bz)u\sBeginn\s(deines|von\s\w+)\sZug", ability["effect"]) or re.match(r"Am\sEnde\s(deines|des)\sZuges", ability["effect"]) or
 						  re.match(r"Falls\sdu\sGestaltwandel\sbenutzt\shas", ability["effect"]) or "wenn du eine Karte ziehst" in ability["effect"] or
-						  re.search(r"\bwährend\ser\seinen?(\s|\w)+herausfordert\b", ability["effect"]) or re.search(r"wenn\sdieser\sCharakter\szu\seinem\sOrt\sbewegt", ability["effect"]) or
+						  re.search(r"\bwährend\ser\seinen?[\s\w]+herausfordert\b", ability["effect"]) or re.search(r"wenn\sdieser\sCharakter\szu\seinem\sOrt\sbewegt", ability["effect"]) or
 						  re.match(r"Wenn\s\w+\sdiese[nrs]\s\w+\sausspielt", ability["effect"]) or re.match(r"Wenn\sdu\seine.+ausspielst", ability["effect"], flags=re.DOTALL)):
 						ability["type"] = "triggered"
 				elif GlobalConfig.language == Language.ITALIAN:
@@ -654,7 +691,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 
 				if abilityIndex in forceAbilityTypeAtIndex:
 					if forceAbilityTypeAtIndex[abilityIndex] == ability["type"]:
-						_logger.error(f"Ability at index {abilityIndex} of {CardUtil.createCardIdentifier(outputCard)} should be corrected to '{forceAbilityTypeAtIndex[abilityIndex]}' but it is already that type")
+						_logger.error(f"Ability at index {abilityIndex} of {CardUtil.createOutputCardIdentifier(outputCard)} should be corrected to '{forceAbilityTypeAtIndex[abilityIndex]}' but it is already that type")
 					else:
 						ability["type"] = forceAbilityTypeAtIndex[abilityIndex]
 						_logger.info(f"Forcing ability type at index {abilityIndex} of card ID {outputCard['id']} to '{ability['type']}'")
@@ -674,24 +711,26 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 					ability["fullText"] = ""
 					if newlineAfterLabelIndex == abilityIndex:
 						_logger.error(f"Ability at index {newlineAfterLabelIndex} is set to get a newline after its ability name, but it doesn't have a name")
-				if "costsText" in ability:
+				if activatedAbilityMatch and "costsText" in ability:
 					# Usually we want to get the specific type of cost separator dash from the input data, but sometimes that's wrong
-					costSeparatorDash = None
+					costSeparatorDash: Optional[str] = None
 					if GlobalConfig.language == Language.GERMAN:
 						if parsedIdentifier.setCode == "1":
 							costSeparatorDash = "–"  # en-dash, \u2013
 						elif parsedIdentifier.setCode == "5":
 							costSeparatorDash = "—"  # em-dash, \u2014
 					if not costSeparatorDash:
-						costSeparatorDash = None
 						if "rules_text" in inputCard:
 							costSeparatorDashMatch = re.search(r"\s([-–—])\s", inputCard["rules_text"])
 							if costSeparatorDashMatch:
 								costSeparatorDash = costSeparatorDashMatch.group(1)
 							else:
-								_logger.error(f"Unable to find cost separator dash match in '{inputCard['rules_text']!r}' in {CardUtil.createCardIdentifier(outputCard)}")
+								_logger.error(f"Unable to find cost separator dash match in '{inputCard['rules_text']!r}' in {CardUtil.createOutputCardIdentifier(outputCard)}")
 						if not costSeparatorDash:
 							costSeparatorDash = activatedAbilityMatch.group(2)
+					if not costSeparatorDash:
+						_logger.error(f"Unable to find cost separator dash in cost text {ability['costsText']!r}, using fallback")
+						costSeparatorDash: str = "-"
 					ability["fullText"] += ability["costsText"] + activatedAbilityMatch.group(1) + costSeparatorDash + activatedAbilityMatch.group(3)
 					ability["costsText"] = ability["costsText"].replace("\n", " ")
 					ability["costs"] = ability["costsText"].split(", ")
@@ -731,7 +770,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 	fullTextSections = []
 	if "abilities" in outputCard:
 		previousAbilityWasKeywordWithoutReminder: bool = False
-		for abilityIndex, ability in enumerate(outputCard["abilities"]):  # type: Dict[str, str]
+		for abilityIndex, ability in enumerate(outputCard["abilities"]):
 			# Some cards have multiple keyword abilities on one line without reminder text. They'll be stored as separate abilities, but they should be in one section
 			if abilityIndex not in skipFullTextSectionMergeAtIndex and ability["type"] == "keyword" and _KEYWORD_REGEX_WITHOUT_REMINDER.match(ability["fullText"]):
 				if previousAbilityWasKeywordWithoutReminder:
@@ -742,7 +781,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 					fullTextSections.append(ability["fullText"])
 			else:
 				if abilityIndex in skipFullTextSectionMergeAtIndex:
-					_logger.debug(f"Skipping joining keyword ability at index {abilityIndex} with the previous line in card {CardUtil.createCardIdentifier(outputCard)}")
+					_logger.debug(f"Skipping joining keyword ability at index {abilityIndex} with the previous line in card {CardUtil.createOutputCardIdentifier(outputCard)}")
 				fullTextSections.append(ability["fullText"])
 	if "effects" in outputCard:
 		fullTextSections.extend(outputCard["effects"])
@@ -754,7 +793,8 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 	if "story" in inputCard:
 		outputCard["story"] = inputCard["story"]
 	else:
-		outputCard["story"] = storyParser.getStoryNameForCard(outputCard, outputCard["id"], inputCard.get("searchable_keywords", None))
+		story: Optional[str] = storyParser.getStoryNameForCard(outputCard, outputCard["id"], inputCard.get("searchable_keywords", None))
+		outputCard["story"] = story if story else "[[???]]"
 	if historicData:
 		outputCard["historicData"] = historicData
 
@@ -804,12 +844,12 @@ def _toTitleCase(s: str) -> str:
 				s = s.replace(toLowerCaseWord, toLowerCaseWord.lower())
 	return s
 
-def _parseAdditionalInfo(inputCard: Dict, outputCard: Dict):
+def _parseAdditionalInfo(inputCard: Dict, outputCard: OutputCard):
 	# Some cards have errata or clarifications, both in the 'additional_info' fields. Split those up
 	if not inputCard.get("additional_info", None):
 		return
-	errata = []
-	clarifications = []
+	errata: List[str] = []
+	clarifications: List[str] = []
 	for infoEntry in inputCard["additional_info"]:
 		# The text has multiple \r\n's as newlines, reduce that to just a single \n
 		infoText: str = re.sub(r" ?(\\r\\n|\r\n)+ ?", "\n", infoEntry["body"]).strip().replace("\t", " ")
@@ -837,14 +877,20 @@ def _parseAdditionalInfo(inputCard: Dict, outputCard: Dict):
 												"Texte mis à jour", "Texte actualisé de la règle", "Texte des règles",
 												"Aktualisierter Text", "Aktualisierter Regeltext", "Regeltext",
 												"Testo aggiornato", "Testo aggiornato della norma", "Testo delle regole"):
-			_logger.warning(f"Unknown 'additional_info' type '{infoEntry['title']}' in card {CardUtil.createCardIdentifier(outputCard)}")
+			_logger.warning(f"Unknown 'additional_info' type '{infoEntry['title']}' in card {CardUtil.createOutputCardIdentifier(outputCard)}")
 	if errata:
 		outputCard["errata"] = errata
 	if clarifications:
 		outputCard["clarifications"] = clarifications
 
-def _parseNameFields(inputCard: Dict, outputCard: Dict, ocrResult: OcrResult):
-	outputCard["name"] = TextCorrection.correctPunctuation(inputCard["name"].strip() if "name" in inputCard else ocrResult.name).replace("’", "'").replace("‘", "'").replace("''", "'")
+def _parseNameFields(inputCard: Dict, outputCard: OutputCard, ocrResult: OcrResult):
+	inputName: Optional[str] = inputCard.get("name", None)
+	if not inputName:
+		inputName = ocrResult.name
+	if not inputName:
+		raise ValueError(f"Unable to get name of card with ID {outputCard['id']}")
+	inputName: str = inputName.strip()
+	outputCard["name"] = TextCorrection.correctPunctuation(inputName).replace("’", "'").replace("‘", "'").replace("''", "'")
 	if outputCard["name"] == "Balais Magiques":
 		# This name is inconsistent, sometimes it has a capital 'M', sometimes a lowercase 'm'
 		# Comparing with capitalization of other cards, this should be a lowercase 'm'
@@ -877,10 +923,14 @@ def _parseNameFields(inputCard: Dict, outputCard: Dict, ocrResult: OcrResult):
 			outputCard["name"] = "Wreck-It Ralph"
 	outputCard["fullName"] = outputCard["name"]
 	outputCard["simpleName"] = outputCard["fullName"]
-	if "subtitle" in inputCard or ocrResult.version:
-		outputCard["version"] = (inputCard["subtitle"].strip() if "subtitle" in inputCard else ocrResult.version).replace("’", "'")
-		outputCard["fullName"] += " - " + outputCard["version"]
-		outputCard["simpleName"] += " " + outputCard["version"]
+	cardVersion: Optional[str] = inputCard.get("subtitle", None)
+	if not cardVersion:
+		cardVersion = ocrResult.version
+	if cardVersion:
+		cardVersion: str = cardVersion.strip().replace("’", "'")
+		outputCard["version"] = cardVersion
+		outputCard["fullName"] += " - " + cardVersion
+		outputCard["simpleName"] += " " + cardVersion
 	# simpleName is the full name with special characters and the base-subtitle dash removed, for easier lookup. So remove the special characters
 	outputCard["simpleName"] = re.sub(r"[!.,…?“”\"]", "", outputCard["simpleName"].lower()).rstrip()
 	for replacementChar, charsToReplace in {"a": "[àâäā]", "c": "ç", "e": "[èêé]", "i": "[îïí]", "o": "[ôö]", "u": "[ùûü]", "oe": "œ", "ss": "ß"}.items():
@@ -892,7 +942,7 @@ def _parseNameFields(inputCard: Dict, outputCard: Dict, ocrResult: OcrResult):
 		if nameSeparator in outputCard["name"]:
 			outputCard["names"] = sorted(outputCard["name"].split(nameSeparator))
 
-def _parseRelatedCards(relatedCards: RelatedCards, parsedIdentifier: IdentifierParser.Identifier, outputCard: Dict):
+def _parseRelatedCards(relatedCards: RelatedCards, parsedIdentifier: IdentifierParser.Identifier, outputCard: OutputCard):
 	otherRelatedCards = relatedCards.getOtherRelatedCards(outputCard["setCode"], outputCard["id"])
 	if otherRelatedCards.epicId:
 		outputCard["epicId"] = otherRelatedCards.epicId
@@ -908,12 +958,12 @@ def _parseRelatedCards(relatedCards: RelatedCards, parsedIdentifier: IdentifierP
 		outputCard["baseId"] = otherRelatedCards.nonIconicId
 	if otherRelatedCards.nonPromoId:
 		if "baseId" in outputCard:
-			_logger.error(f"baseId is already set to {outputCard['baseId']} from a rarity, not setting it to non-promo ID {otherRelatedCards.nonPromoId} for card {CardUtil.createCardIdentifier(outputCard)}")
+			_logger.error(f"baseId is already set to {outputCard['baseId']} from a rarity, not setting it to non-promo ID {otherRelatedCards.nonPromoId} for card {CardUtil.createOutputCardIdentifier(outputCard)}")
 		else:
 			outputCard["baseId"] = otherRelatedCards.nonPromoId
 	elif otherRelatedCards.promoIds:
 		outputCard["promoIds"] = otherRelatedCards.promoIds
-	if otherRelatedCards.otherVariantIds:
+	if otherRelatedCards.otherVariantIds and parsedIdentifier.variant:
 		outputCard["variantIds"] = otherRelatedCards.otherVariantIds
 		outputCard["variant"] = parsedIdentifier.variant
 	if otherRelatedCards.reprintedAsIds:
@@ -921,7 +971,7 @@ def _parseRelatedCards(relatedCards: RelatedCards, parsedIdentifier: IdentifierP
 	elif otherRelatedCards.reprintOfId:
 		outputCard["reprintOfId"] = otherRelatedCards.reprintOfId
 
-def _parseSubtypes(subtypesText: Optional[str], outputCard: Dict):
+def _parseSubtypes(subtypesText: Optional[str], outputCard: OutputCard):
 	if not subtypesText:
 		return
 	subtypes: List[str] = re.sub(fr"[^A-Za-zàäèéöü{LorcanaSymbols.SEPARATOR} ]", "", subtypesText).split(LorcanaSymbols.SEPARATOR_STRING)
@@ -945,7 +995,7 @@ def _parseSubtypes(subtypesText: Optional[str], outputCard: Dict):
 			subtypes[subtypeIndex] = "Floodborn"
 		elif GlobalConfig.language == Language.ENGLISH and subtype != "Hero" and re.match(r"e?H[eo]r[aeos]", subtype):
 			subtypes[subtypeIndex] = "Hero"
-		elif subtype == "Hros":
+		elif re.match("Hé?[rt]os", subtype):
 			subtypes[subtypeIndex] = "Héros"
 		elif re.match("I?Hl?usion", subtype):
 			subtypes[subtypeIndex] = "Illusion"

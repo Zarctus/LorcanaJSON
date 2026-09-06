@@ -1,13 +1,14 @@
 import copy, datetime, hashlib, json, logging, multiprocessing.pool, os, threading, time, zipfile
 import xml.etree.ElementTree as xmlElementTree
-from multiprocessing.pool import ApplyResult
+from multiprocessing.pool import AsyncResult
 from typing import Dict, List, Optional, Union
 
 import GlobalConfig
 from APIScraping.ExternalLinksHandler import ExternalLinksHandler
 from OCR import ImageParser, OcrCacheHandler
 from OCR.OcrResult import OcrResult
-from OutputGeneration import SingleCardDataGenerator
+from OCR.ParseSettings import ParseSettingsPicker
+from OutputGeneration import SingleCardDataGenerator, FormatCoconutCardDataGenerator
 from OutputGeneration.AllowedInFormatsHandler import AllowedInFormatsHandler
 from OutputGeneration.ArtistsHandler import ArtistsHandler
 from OutputGeneration.RelatedCardsCollator import RelatedCardCollator
@@ -16,7 +17,7 @@ from OutputGeneration.StoryParser import StoryParser
 from util import CardUtil, IdentifierParser
 
 _logger = logging.getLogger("LorcanaJSON")
-FORMAT_VERSION = "2.3.4"
+FORMAT_VERSION = "2.3.5"
 # The card parser is run in threads, and each thread needs to initialize its own ImageParser (otherwise weird errors happen in Tesseract)
 # Store each initialized ImageParser in its own thread storage
 _threadingLocalStorage = threading.local()
@@ -33,7 +34,7 @@ def createOutputFiles(onlyParseIds: Optional[List[int]] = None, shouldShowImages
 		raise FileNotFoundError(f"Card catalog for language '{GlobalConfig.language.code}' doesn't exist. Run the data downloader first")
 
 	with open(os.path.join("OutputGeneration", "data", "outputDataCorrections", "outputDataCorrections.json"), "r", encoding="utf-8") as correctionsFile:
-		cardDataCorrections: Dict[str, Dict[str, List[str, str]]] = json.load(correctionsFile)
+		cardDataCorrections: Dict[str, Dict[str, List[str]]] = json.load(correctionsFile)
 	correctionsFilePath = os.path.join("OutputGeneration", "data", "outputDataCorrections", f"outputDataCorrections_{GlobalConfig.language.code}.json")
 	if os.path.isfile(correctionsFilePath):
 		with open(correctionsFilePath, "r", encoding="utf-8") as correctionsFile:
@@ -104,6 +105,7 @@ def createOutputFiles(onlyParseIds: Optional[List[int]] = None, shouldShowImages
 			# Add some preprocessed data that we need in several places
 			inputCard["_idAsString"] = str(cardId)
 			inputCard["_parsedIdentifier"] = IdentifierParser.parseIdentifier(inputCard["card_identifier"])
+			inputCard["_parseSettings"] = ParseSettingsPicker.getParseSettingsForCard(inputCard, inputCard["_parsedIdentifier"])
 			inputCard["_type"] = cardTypeText
 			cardIdsStored.append(inputCard["culture_invariant_id"])
 			inputCards.append(inputCard)
@@ -132,14 +134,14 @@ def createOutputFiles(onlyParseIds: Optional[List[int]] = None, shouldShowImages
 		cardId = inputCard["culture_invariant_id"]
 		shouldOcrCard: bool = True
 		if GlobalConfig.useCachedOcr and not GlobalConfig.skipOcrCache:
-			ocrResult = OcrCacheHandler.getCachedOcrResult(cardId)
+			ocrResult = OcrCacheHandler.getCachedOcrResult(cardId, inputCard["_parseSettings"])
 			if ocrResult:
 				shouldOcrCard = False
 				ocrResults[cardId] = ocrResult
 		if shouldOcrCard:
 			cardsToOcr.append(inputCard)
 	if cardsToOcr:
-		ocrResultGetters: Dict[int, Optional[ApplyResult[OcrResult]]] = {}
+		ocrResultGetters: Dict[int, AsyncResult[OcrResult]] = {}
 		with multiprocessing.pool.ThreadPool(min(GlobalConfig.threadCount, len(cardsToOcr)), initializer=initThread) as pool:
 			for inputCard in cardsToOcr:
 				try:
@@ -225,6 +227,8 @@ def createOutputFiles(onlyParseIds: Optional[List[int]] = None, shouldShowImages
 				parsedCards["cards"].append(card)
 		with open(os.path.join("output", "parsedCards.json"), "w", encoding="utf-8") as parsedCardsFile:
 			json.dump(parsedCards, parsedCardsFile, indent=2)
+
+	# End of the limited build
 	if GlobalConfig.limitedBuild:
 		_logger.info("Limited build, not creating extra files")
 		return
@@ -288,6 +292,15 @@ def createOutputFiles(onlyParseIds: Optional[List[int]] = None, shouldShowImages
 	_saveZippedFile(os.path.join(decksOutputFolder, "allDecks.zip"), simpleDeckFilePaths)
 	_saveZippedFile(os.path.join(decksOutputFolder, "allDecks.full.zip"), fullDeckFilePaths)
 	_logger.info(f"Created deck files in {time.perf_counter() - startTime} seconds")
+
+	coconutCardsData = FormatCoconutCardDataGenerator.generateFormatCoconutCardData(inputData, fullCardList)
+	if coconutCardsData:
+		outputCoconutData = {
+			"metadata": metaDataDict,
+			"cards": coconutCardsData
+		}
+		_saveFile(os.path.join(outputFolder, "formatCoconutCards.json"), outputCoconutData, False)
+		_logger.info(f"Created Format Cooconut file in {time.perf_counter() - startTime}")
 
 	# Create an XML file that Cockatrice can load
 	rootElement = xmlElementTree.Element("cockatrice_carddatabase", {"version": "4"})
@@ -368,12 +381,10 @@ def getOcrResultForCard(inputCard: Dict, imageFolder: str, threadLocalStorage, i
 		cardId,
 		imageFolder,
 		parseFully=isExternalReveal,
-		parsedIdentifier=inputCard["_parsedIdentifier"],
+		parseSettings=inputCard["_parseSettings"],
 		cardType=inputCard["_type"],
 		hasCardText=inputCard["rules_text"] != "" if "rules_text" in inputCard else None,
 		hasFlavorText=inputCard["flavor_text"] != "" if "flavor_text" in inputCard else None,
-		isEpic=inputCard["rarity"] == "EPIC",
-		isEnchanted=inputCard["rarity"] == "ENCHANTED",
 		showImage=shouldShowImage
 	)
 	if not GlobalConfig.skipOcrCache:
