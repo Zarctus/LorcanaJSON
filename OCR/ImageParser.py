@@ -239,6 +239,9 @@ class ImageParser:
 				if lines is None:
 					self._logger.debug(f"No lines found in card {cardId}")
 				else:
+					# OpenCV versions may return Hough lines as either (N, 1, 4) or (N, 4).
+					# Normalize both layouts before accessing the x1, y1, x2, y2 coordinates.
+					lines = lines.reshape(-1, 4)
 					# Sort lines from top to bottom
 					lines: List = sorted(lines, key=lambda lineToSort: lineToSort[1])
 					self._logger.debug(f"In line fallback method found {len(lines):,} lines: {lines}")
@@ -302,6 +305,9 @@ class ImageParser:
 				hasFlavorText = False
 				self._logger.debug("No flavour text separator found")
 			else:
+				# OpenCV versions may return Hough lines as either (N, 1, 4) or (N, 4).
+				# Normalize both layouts before accessing the x1, y1, x2, y2 coordinates.
+				lines = lines.reshape(-1, 4)
 				self._logger.debug(f"{len(lines):,} lines found: {lines!r}")
 				flavorTextSeparatorY = 0
 				for line in lines:
