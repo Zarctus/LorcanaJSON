@@ -311,7 +311,7 @@
       "de": "Die Stadt Hyperia",
       "en": "Hyperia City",
       "fr": "Hyperia City",
-      "it": "Città die Hyperia"
+      "it": "Città di Hyperia"
     },
     "prereleaseDate": "2026-10-16",
     "releaseDate": "2026-10-23",
@@ -336,8 +336,8 @@
       "fr": "Entrez en Encresombre",
       "it": "Nelle Terre Oscure"
     },
-    "prereleaseDate": null,
-    "releaseDate": null,
+    "prereleaseDate": "2027-02-05",
+    "releaseDate": "2027-02-12",
     "hasAllCards": false,
     "type": "expansion",
     "number": 15,
@@ -424,8 +424,8 @@
       "en": "Illumineer's Quest: The Great Hunny Rescue",
       "fr": "Quête des Illumineurs: Équipe Miel à la rescousse"
     },
-    "prereleaseDate": "2026-10-01",
-    "releaseDate": "2026-10-01",
+    "prereleaseDate": "2026-10-02",
+    "releaseDate": "2026-10-02",
     "hasAllCards": false,
     "type": "quest",
     "number": 3,

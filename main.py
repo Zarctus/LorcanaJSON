@@ -223,22 +223,6 @@ if __name__ == '__main__':
 			providedThreadCountSource = "config file"
 		_setUpThreadCount(parsedArguments.action == "show" or parsedArguments.shouldShowSubimages, providedThreadCount, providedThreadCountSource, cardIds)
 
-		if parsedArguments.rebuildOcrCache:
-			_infoOrPrint(logger, "Setting OCR cache to be rebuilt")
-			GlobalConfig.useCachedOcr = False
-			GlobalConfig.skipOcrCache = False
-			OcrCacheHandler.clearOcrCache()
-		else:
-			if parsedArguments.action == "show" or parsedArguments.shouldShowSubimages:
-				logger.info("Not using OCR cache, because we need to show the card images")
-				GlobalConfig.useCachedOcr = False
-			elif parsedArguments.useCachedOcr or config.get("useCachedOcr", False):
-				logger.info("Using OCR cache")
-				GlobalConfig.useCachedOcr = True
-				OcrCacheHandler.validateOcrCache()
-			if parsedArguments.skipOcrCache or config.get("skipOcrCache", False):
-				logger.info("Skipping creating OCR cache")
-				GlobalConfig.skipOcrCache = True
 		# Only set 'limitedBuild' if we're actually building
 		if parsedArguments.limitedBuild:
 			logger.info("Running a limited build. Setfiles, deckfiles etc won't be generated")
@@ -250,6 +234,23 @@ if __name__ == '__main__':
 		GlobalConfig.translation = Translations.getForLanguage(GlobalConfig.language)
 		_infoOrPrint(logger, f"Starting action '{parsedArguments.action}' for language '{GlobalConfig.language.englishName}' at {datetime.datetime.now()}")
 
+		if parsedArguments.action in ("parse", "show", "update"):
+			if parsedArguments.rebuildOcrCache:
+				_infoOrPrint(logger, "Setting OCR cache to be rebuilt")
+				GlobalConfig.useCachedOcr = False
+				GlobalConfig.skipOcrCache = False
+				OcrCacheHandler.clearOcrCache()
+			else:
+				if parsedArguments.action == "show" or parsedArguments.shouldShowSubimages:
+					logger.info("Not using OCR cache, because we need to show the card images")
+					GlobalConfig.useCachedOcr = False
+				elif parsedArguments.useCachedOcr or config.get("useCachedOcr", False):
+					logger.info("Using OCR cache")
+					GlobalConfig.useCachedOcr = True
+					OcrCacheHandler.validateOcrCache()
+				if parsedArguments.skipOcrCache or config.get("skipOcrCache", False):
+					logger.info("Skipping creating OCR cache")
+					GlobalConfig.skipOcrCache = True
 		startTime = time.perf_counter()
 		if parsedArguments.action == "check":
 			_checkForUpdates(parsedArguments.ignoreFields)
@@ -305,7 +306,8 @@ if __name__ == '__main__':
 					card = idToCard[cardId]
 					identifier = IdentifierParser.parseIdentifier(card["card_identifier"])
 					parseSettings = ParseSettingsPicker.getParseSettingsForCard(card, identifier)
-				ocrResult = ImageParser.ImageParser().getImageAndTextDataFromImage(cardId, baseImagePathForCard, True, parseSettings, showImage=True)
+				with ImageParser.ImageParser() as imageParser:
+					ocrResult = imageParser.getImageAndTextDataFromImage(cardId, baseImagePathForCard, True, parseSettings, showImage=True)
 				_infoOrPrint(logger, f"Card ID {cardId}")
 				for fieldName, fieldResult in dataclasses.asdict(ocrResult).items():
 					if fieldResult is None:

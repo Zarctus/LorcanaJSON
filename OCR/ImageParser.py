@@ -1,10 +1,12 @@
 import logging, math, os, re, time
 from collections import namedtuple
-from typing import Any, List, NotRequired, Optional, TypedDict
+from types import TracebackType
+from typing import List, NotRequired, Optional, TypedDict, TYPE_CHECKING
 
 import cv2, tesserocr
-from numpy import ndarray  # numpy comes from cv2
 from PIL import Image
+if TYPE_CHECKING:
+	from numpy import ndarray  # numpy comes from cv2
 
 import GlobalConfig
 from OCR import ImageArea
@@ -60,6 +62,22 @@ class ImageParser:
 		self._tesseractApi.SetVariable("tessedit_fix_fuzzy_spaces", "0")
 		self._tesseractApi.SetVariable("tessedit_fix_hyphens", "0")
 		self._tesseractApi.SetVariable("crunch_early_convert_bad_unlv_chs", "1")
+
+	def close(self):
+		if self._tesseractApi is not None:
+			self._tesseractApi.End()
+			self._tesseractApi = None
+
+	def __del__(self):
+		self.close()
+
+	def __enter__(self):
+		# Allow use in 'with'-statements. No other setup is needed
+		return self
+
+	def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None):
+		# Called when the 'with-statement is done. Don't suppress any exceptions, but always close the API
+		self.close()
 
 	def getImageAndTextDataFromImage(self, cardId: int, baseImagePath: str, parseFully: bool, parseSettings: ParseSettings, cardType: Optional[str] = None, hasCardText: Optional[bool] = None, hasFlavorText: Optional[bool] = None,
 									 showImage: bool = False) -> OcrResult:
@@ -151,7 +169,7 @@ class ImageParser:
 		else:
 			cardLayout = parseSettings.cardLayout
 
-		result["artist"] = self._getSubImageAndText(greyCardImage, cardLayout.artist, parseSettings.forceArtistTextColor)
+		result["artist"] = self._getSubImageAndText(greyCardImage, cardLayout.artist, parseSettings.forceArtistTextColor, parseSettings.artistRightOffset)
 		if parseFully:
 			# Parse from top to bottom
 			result["name"] = self._getSubImageAndText(greyCardImage, cardLayout.name)
@@ -311,6 +329,9 @@ class ImageParser:
 				self._logger.debug(f"{len(lines):,} lines found: {lines!r}")
 				flavorTextSeparatorY = 0
 				for line in lines:
+					if line[0] == line[2]:
+						self._logger.debug(f"Line {line} is vertical, skipping")
+						continue
 					if line[0] < 80 or line[1] < 20:
 						# Too far to the left or to the top, probably a mistaken label
 						self._logger.debug(f"Skipping line {line}, too close to the edge, probably a mistake")
@@ -543,8 +564,8 @@ class ImageParser:
 				self._logger.info(f"Corrected non-numeric result '{originalResult}' to '{result}' for image area '{imageAreaName}'")
 		return result
 
-	def _getSubImageAndText(self, cardImage: cv2.typing.MatLike, imageArea: ImageArea.ImageArea, forceTextColor: Optional[ImageArea.TextColour] = None) -> ImageAndText:
-		subImage = self._getSubImage(cardImage, imageArea)
+	def _getSubImageAndText(self, cardImage: cv2.typing.MatLike, imageArea: ImageArea.ImageArea, forceTextColor: Optional[ImageArea.TextColour] = None, offsetRight: int = 0) -> ImageAndText:
+		subImage = self._getSubImage(cardImage, imageArea, offsetRight=offsetRight)
 		# Numeric reading is more sensitive, so convert to a clearer threshold image
 		textColour = forceTextColor if forceTextColor else imageArea.textColour
 		if imageArea.isNumeric or textColour == ImageArea.TEXT_COLOUR_WHITE_LIGHT_BACKGROUND:

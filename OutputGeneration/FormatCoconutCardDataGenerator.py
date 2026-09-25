@@ -10,10 +10,11 @@ from OutputGeneration import TextCorrection
 from OutputGeneration.ArtistsHandler import ArtistsHandler
 from util import Language
 from util.FormatCoconutCard import FormatCoconutCard
+from util.typedDicts.OutputCard import OutputCard
 
 _LOGGER = logging.getLogger("LorcanaJSON")
 
-def generateFormatCoconutCardData(inputCardData: Dict, outputCardList: List[Dict]) -> Optional[List[Dict]]:
+def generateFormatCoconutCardData(inputCardData: Dict, outputCardList: List[OutputCard]) -> Optional[List[Dict]]:
 	# For now only English has Coconut cards
 	if GlobalConfig.language != Language.ENGLISH:
 		_LOGGER.warning(f"Format Coconut cards only exist in English for now, not parsing for {GlobalConfig.language.englishName}")
@@ -23,7 +24,7 @@ def generateFormatCoconutCardData(inputCardData: Dict, outputCardList: List[Dict
 		return None
 
 	# To match Coconut cards to their referred main cards, we need to create a name list
-	cardNameToCard: Dict[str, Dict] = {}
+	cardNameToCard: Dict[str, OutputCard] = {}
 	for outputCard in outputCardList:
 		# Skip fancy-art and promo cards; don't overwrite original prints with reprints
 		if "baseId" not in outputCard and outputCard["fullName"] not in cardNameToCard:
@@ -53,7 +54,7 @@ def generateFormatCoconutCardData(inputCardData: Dict, outputCardList: List[Dict
 	outputCoconutCards.sort(key=lambda c: c["number"])
 	return outputCoconutCards
 
-def _generateDataForSingleFormatCoconutCard(coconutCard: FormatCoconutCard, associatedCard: Dict, imageParser: ImageParser, baseImagePath: str, cardCorrections: Optional[Dict], historicCardData: Optional[List[Dict]]) -> Dict:
+def _generateDataForSingleFormatCoconutCard(coconutCard: FormatCoconutCard, associatedCard: OutputCard, imageParser: ImageParser, baseImagePath: str, cardCorrections: Optional[Dict], historicCardData: Optional[List[Dict]]) -> Dict:
 	ocrResult: Optional[OcrResult] = None
 	if GlobalConfig.useCachedOcr and not GlobalConfig.skipOcrCache:
 		ocrResult = OcrCacheHandler.getCachedOcrResult(coconutCard.getOcrIdentifier(), ParseSettingsPresets.DEFAULT_PARSE_SETTINGS)
@@ -65,7 +66,9 @@ def _generateDataForSingleFormatCoconutCard(coconutCard: FormatCoconutCard, asso
 	# The Ink symbol could cause the OCR reader to read a double newline where it should be a single newline, fix that
 	fullText = re.sub(r"(?<=[a-z])\n\n(?=\d)", "\n", fullText)
 	# Sometimes it reads a double newline as a single, combining two abilities into one. Fix that
-	fullText = re.sub("(?<=\\.)\n(?=[A-Z])", "\n\n", fullText)
+	fullText = re.sub("(?<=\\.)\n(?=Whenever)", "\n\n", fullText)
+	# Simplify possessive quotemark
+	fullText = re.sub(r"(?<=\w)’(?=\w)", "'", fullText)
 	reminderTextMatch = re.match(r"^\([^)]+\)", fullText)
 	if not reminderTextMatch:
 		raise ValueError(f"Unable to find reminder text in {fullText!r} of {coconutCard}")
@@ -80,9 +83,9 @@ def _generateDataForSingleFormatCoconutCard(coconutCard: FormatCoconutCard, asso
 	for abilityText in abilitiesText.split("\n\n"):
 		abilityText = TextCorrection.correctText(abilityText)
 		abilityType = "static"
-		if abilityText.startswith("Whenever"):
+		if abilityText.startswith("Whenever") or ", whenever" in abilityText:
 			abilityType = "triggered"
-		elif re.match(r"(Once(\sper\sgame)?\sduring\syour|At\sthe\sstart\sof\syour\sfirst)\sturn,\syou\smay", abilityText):
+		elif re.match(r"(Once(\sper\sgame)?\sduring\syour|At\sthe\sstart\sof\syour\sfirst)\sturn,\s(for\seach[^,]+,\s)?you\smay", abilityText):
 			abilityType = "activated"
 		abilities.append({
 			"fullText": abilityText,
@@ -104,6 +107,8 @@ def _generateDataForSingleFormatCoconutCard(coconutCard: FormatCoconutCard, asso
 		"number": coconutCard.number,
 		"subtitle": coconutCard.coconutData["subtitle"],
 	}
+	if "colors" in associatedCard:
+		outputData["colors"] = associatedCard["colors"]
 	if cardCorrections:
 		for fieldName, correctionList in cardCorrections.items():
 			TextCorrection.correctCardFieldFromList(outputData, fieldName, correctionList)
@@ -117,6 +122,7 @@ def _generateDataForSingleFormatCoconutCard(coconutCard: FormatCoconutCard, asso
 		ability = abilities[abilityIndex]
 		ability["effect"] = ability["fullText"].strip("()").replace("\n", " ")
 		abilities[abilityIndex] = {k: ability[k] for k in sorted(ability)}
-	if abilities[0]["effect"] != f"You can have up to 4 copies of {associatedCard['fullName']} in your deck.":
-		_LOGGER.warning(f"Reminder text for Format Coconut card {coconutCard} is incorrect")
+	expectedFirstAbilityEffect = f"You can have up to 4 copies of {associatedCard['fullName']} in your deck."
+	if abilities[0]["effect"] != expectedFirstAbilityEffect:
+		_LOGGER.warning(f"Reminder text for Format Coconut card {coconutCard} should be {expectedFirstAbilityEffect!r}, but text is {abilities[0]['effect']!r}")
 	return {k: outputData[k] for k in sorted(outputData)}
