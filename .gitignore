@@ -10,3 +10,7 @@ __pycache__/
 /config.json
 
 getOfficialIds.php
+
+# FRED Studio: local environment, logs and correction backups
+/.venv-studio/
+/.fred-studio/

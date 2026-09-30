@@ -257,13 +257,14 @@ def compareInputToOutput(cardIdsToVerify: Optional[List[int]]):
 
 	print(f"----------\nFound {cardDifferencesCount:,} difference{'' if cardDifferencesCount == 1 else 's'} between input and output")
 
-def _prepareInputCardRulesText(inputCard: Dict):
+def _prepareInputCardRulesText(inputCard: Dict, language=None):
+	language = language or GlobalConfig.language
 	if not inputCard.get("rules_text", None):
 		return
 	inputRulesText = inputCard["rules_text"].replace("<", "").replace(">", "")
 	# In German and Italian, after the first few sets, keywords on Enchanted and Iconic cards don't have reminder text, but they keep putting it into the input data anyway. Fix that
 	# Do this before everything else so we can use the '%' character as an ending check before it gets removed
-	if (GlobalConfig.language == Language.GERMAN or GlobalConfig.language == Language.ITALIAN) and inputCard["culture_invariant_id"] >= 2141 and inputCard["rarity"] in ("ENCHANTED", "ICONIC"):
+	if (language == Language.GERMAN or language == Language.ITALIAN) and inputCard["culture_invariant_id"] >= 2141 and inputCard["rarity"] in ("ENCHANTED", "ICONIC"):
 		inputRulesText = re.sub(r"\([^)]+\)(%|$)", "", inputRulesText).replace("  ", " ")
 	inputRulesText = re.sub(" ?%", " ", inputRulesText)
 	inputRulesText = re.sub(" ?\n+", " ", inputRulesText)
@@ -282,16 +283,16 @@ def _prepareInputCardRulesText(inputCard: Dict):
 		inputRulesText = re.sub(r"\{([^}]+)\}", lambda m: LorcanaSymbols.LETTER_TO_SYMBOL[m.group(1)], inputRulesText)
 	# Simplify quotemarks in the middle of a word ("it's", "you're")
 	inputRulesText = re.sub(r"(?<=\w)’(?=\w)", "'", inputRulesText)
-	inputRulesText = inputRulesText.replace("\u00a0", " " if GlobalConfig.language == Language.FRENCH else "").replace("  ", " ")
+	inputRulesText = inputRulesText.replace("\u00a0", " " if language == Language.FRENCH else "").replace("  ", " ")
 	inputRulesText = inputRulesText.replace(" \"", " “")
 	inputRulesText = re.sub("\"( |\\.|$)", "”\\1", inputRulesText)
 	# Some cards have an m-dash instead of normal 'minus' dash in front of numbers
 	inputRulesText = re.sub(r"[–—](?=\d)", "-", inputRulesText)
-	inputRulesText = inputRulesText.replace(" . . .", "..." if GlobalConfig.language == Language.ENGLISH else "…")
+	inputRulesText = inputRulesText.replace(" . . .", "..." if language == Language.ENGLISH else "…")
 	inputRulesText = inputRulesText.rstrip()
-	if GlobalConfig.language == Language.ENGLISH:
+	if language == Language.ENGLISH:
 		inputRulesText = inputRulesText.replace("teammates’ ", "teammates' ").replace("players’ ", "players' ").replace("Illumineers’ ", "Illumineers' ")
-	elif GlobalConfig.language == Language.FRENCH:
+	elif language == Language.FRENCH:
 		# Exclamation marks etc. should be preceded by a space
 		inputRulesText = re.sub(r"(?<=\w)([?!:])", r" \1", inputRulesText)
 		inputRulesText = re.sub("\\.{2,}", "…", inputRulesText)
@@ -300,16 +301,17 @@ def _prepareInputCardRulesText(inputCard: Dict):
 			inputRulesText = inputRulesText.replace("Lorsqu'il vous défie, un personnage adverse doit,", "Lorsqu'un adversaire défie l'un de vos personnages, il doit,")
 		# They often forget the comma after the ink symbol on lines with multiple keyword abilities
 		inputRulesText = re.sub(f"{LorcanaSymbols.INK} (?=[A-Z][a-zé])", f"{LorcanaSymbols.INK}, ", inputRulesText)
-	elif GlobalConfig.language == Language.GERMAN:
+	elif language == Language.GERMAN:
 		# For earlier German cards, they didn't put a space between reminder text and the effect so add that in
 		inputRulesText = re.sub(r"\)(?=\w)", ") ", inputRulesText)
 		# Same problem with the previous effect and the next ability name
 		inputRulesText = re.sub(r"\.(?=[A-Z][A-Z])", ". ", inputRulesText)
-	elif GlobalConfig.language == Language.ITALIAN:
+	elif language == Language.ITALIAN:
 		inputRulesText = inputRulesText.replace("...", "…")
 	inputCard["rules_text"] = inputRulesText
 
-def _prepareInputCardFlavorText(inputCard: Dict):
+def _prepareInputCardFlavorText(inputCard: Dict, language=None):
+	language = language or GlobalConfig.language
 	if not inputCard.get("flavor_text", None) or inputCard["flavor_text"] == "ERRATA":
 		return
 	inputFlavorText: str = inputCard["flavor_text"].replace("\u00a0", "").replace("‘", "'").replace("’", "'").replace("“", "\"").replace("”", "\"").replace("„", "\"").replace("<", "").replace(">", "").replace("\u2028", " ").rstrip()
@@ -322,15 +324,15 @@ def _prepareInputCardFlavorText(inputCard: Dict):
 	inputFlavorText = inputFlavorText.replace("  ", " ")
 	if inputFlavorText.endswith(" ERRATA"):
 		inputFlavorText = inputFlavorText.rsplit(" ", 1)[0]
-	if GlobalConfig.language == Language.ENGLISH:
+	if language == Language.ENGLISH:
 		# Input text always has a space after written-out ellipsis, while the card doesn't, remove it, unless it's just before a quote attribution dash
 		inputFlavorText = re.sub(r"\s?\.\s?\.\s?\.\s?(?!—)", "...", inputFlavorText)
 	else:
 		# Use the ellipsis character instead of three separate periods
 		inputFlavorText = inputFlavorText.replace("...", "…")
-	if GlobalConfig.language == Language.FRENCH:
+	if language == Language.FRENCH:
 		inputFlavorText = re.sub(r"(?<=[\w’'])([?!:])", r" \1", inputFlavorText)
-	elif GlobalConfig.language == Language.GERMAN:
+	elif language == Language.GERMAN:
 		# Quote attribution uses the wrong dash and doesn't have a space in the input text, but it does on the card. Ignore the difference
 		# The second set use a short n-dash instead of a long m-dash, correct for that
 		inputFlavorText = re.sub(r"(?<=\s)[–—](?=[A-Z])", "–" if 204 < inputCard["culture_invariant_id"] <= 432 else "—", inputFlavorText)

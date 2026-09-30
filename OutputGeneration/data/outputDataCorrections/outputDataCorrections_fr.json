@@ -245,7 +245,12 @@
     ]
   },
   "142": {
-    "_effectAtIndexIsAbility": [0, "LIRE UN LIVRE", 1, "MON PASSAGE PRÉFÉRÉ !"],
+    "_effectAtIndexIsAbility": [
+      0,
+      "LIRE UN LIVRE",
+      1,
+      "MON PASSAGE PRÉFÉRÉ !"
+    ],
     "_effectAtIndexIsFlavorText": 0,
     "artistsText": [
       "AII.+NI$",
@@ -923,7 +928,10 @@
     ]
   },
   "676": {
-    "_effectAtIndexIsAbility": [0, "BIENVENUE DANS MA MAISON"]
+    "_effectAtIndexIsAbility": [
+      0,
+      "BIENVENUE DANS MA MAISON"
+    ]
   },
   "677": {
     "abilities": [
@@ -2589,7 +2597,10 @@
     ]
   },
   "1932": {
-    "_addNameToAbilityAtIndex": [1, "MUR GLACIAL"]
+    "_addNameToAbilityAtIndex": [
+      1,
+      "MUR GLACIAL"
+    ]
   },
   "1933": {
     "abilities": [
@@ -2810,10 +2821,16 @@
     ]
   },
   "2159": {
-    "_effectAtIndexIsAbility": [0, "CONVOCATION ROYALE"]
+    "_effectAtIndexIsAbility": [
+      0,
+      "CONVOCATION ROYALE"
+    ]
   },
   "2162": {
-    "_effectAtIndexIsAbility": [0, "TROP TARD"]
+    "_effectAtIndexIsAbility": [
+      0,
+      "TROP TARD"
+    ]
   },
   "2166": {
     "flavorText": [
@@ -3538,7 +3555,10 @@
     ]
   },
   "2670": {
-    "_effectAtIndexIsAbility": [0, "AMÈNE TES AMIS"]
+    "_effectAtIndexIsAbility": [
+      0,
+      "AMÈNE TES AMIS"
+    ]
   },
   "2681": {
     "abilities": [
@@ -3553,7 +3573,10 @@
     ]
   },
   "2690": {
-    "_addNameToAbilityAtIndex": [1, "CŒUR CHALEUREUX"],
+    "_addNameToAbilityAtIndex": [
+      1,
+      "CŒUR CHALEUREUX"
+    ],
     "abilities": [
       "r0 ¤",
       "r 0 ⬡",
@@ -4018,7 +4041,10 @@
     ]
   },
   "2941": {
-    "_insertAbilityAtIndex": [0, "Charge"]
+    "_insertAbilityAtIndex": [
+      0,
+      "Charge"
+    ]
   },
   "2942": {
     "abilities": [
@@ -4064,8 +4090,13 @@
     ]
   },
   "2956": {
-    "_insertAbilityAtIndex": [0, "Alter 5 ⬡"],
-    "_removeEffectsAtIndexes": [0],
+    "_insertAbilityAtIndex": [
+      0,
+      "Alter 5 ⬡"
+    ],
+    "_removeEffectsAtIndexes": [
+      0
+    ],
     "abilities": [
       ", ¤",
       ",",
@@ -4412,7 +4443,10 @@
     ]
   },
   "3199": {
-    "_addNameToAbilityAtIndex": [2, "… ET AU-DELÀ !"],
+    "_addNameToAbilityAtIndex": [
+      2,
+      "… ET AU-DELÀ !"
+    ],
     "abilities": [
       "\\.\n…E",
       ".\n\n…E",
@@ -4468,11 +4502,15 @@
   "3221": {
     "artistsText": [
       " Ne$",
-      ""
+      "",
+      "\\APauline\\s+Voss\\s+—_—\\Z",
+      "Pauline Voss"
     ],
     "flavorText": [
       "\nNe us",
-      ""
+      "",
+      "\\A“Je\\s+viens\\s+de\\s+terminer\\s+une\\s+merveilleuse\\s+histoire\\s+à\\s+propos\\s+d'un\\s+ogre,\\s+du\\s+roi,\\s+des\\s+haricots\\s+et…”\\s+Na\\s+Ce\\Z",
+      "“Je viens de terminer une merveilleuse histoire à propos\nd'un ogre, du roi, des haricots et…”"
     ]
   },
   "3222": {
@@ -4557,6 +4595,14 @@
       "son",
       "doc",
       "dos"
+    ]
+  },
+  "3362": {
+    "effects": [
+      "entre\\s+:\\s+\\-\\s+Il\\s+révèle",
+      "entre :\n• Il révèle",
+      "\\AChoisissez\\s+un\\s+adversaire\\s+qui\\s+choisit\\s+entre\\s+:\\s+•\\s+Il\\s+révèle\\s+sa\\s+main\\s+et\\s+défausse\\s+une\\s+carte\\s+de\\s+votre\\s+choix\\.\\s+Il\\s+gagne\\s+2\\s+gouttes\\s+d'encre\\.\\s+•\\s+Vous\\s+piochez\\s+une\\s+carte\\s+et\\s+gagnez\\s+2\\s+gouttes\\s+d'encre\\.\\s+\\(Vous\\s+pouvez\\s+retirer\\s+l'une\\s+de\\s+vos\\s+gouttes\\s+d'encre\\s+pour\\s+payer1O\\.\\)\\Z",
+      "Choisissez un adversaire qui choisit entre :\n• Il révèle sa main et défausse une carte de votre choix.\nIl gagne 2 gouttes d'encre.\n• Vous piochez une carte et gagnez 2 gouttes d'encre.\n(Vous pouvez retirer l'une de vos gouttes d'encre pour\npayer 1 ⬡.)"
     ]
   }
 }

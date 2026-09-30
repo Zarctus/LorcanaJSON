@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111216"><title>FRED Studio · Lorcana</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/workshop.css">
+  <script src="/app.js" defer></script>
+  <script src="/workshop.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#" aria-label="FRED Studio, accueil"><img src="/favicon.svg" alt=""><span>FRED<span class="brand-light">studio</span><small>LORCANA DATA WORKSPACE</small></span></a>
+    <div class="workspace"><span class="workspace-mark">L</span><div>Disney Lorcana<small>Espace de travail local</small></div><span class="status-dot"></span></div>
+    <div class="nav-label">ESPACE DE TRAVAIL</div>
+    <nav aria-label="Navigation principale">
+      <button data-page="home" class="nav-item active"><i data-icon="dashboard"></i><span class="nav-text">Vue d’ensemble</span></button>
+      <button data-page="catalog" class="nav-item"><i data-icon="cards"></i><span class="nav-text">Catalogue</span><span id="nav-count" class="nav-count">—</span></button>
+      <button data-page="corrections" class="nav-item"><i data-icon="edit"></i><span class="nav-text">Corrections</span></button>
+      <button data-page="jobs" class="nav-item"><i data-icon="activity"></i><span class="nav-text">Traitements</span><span id="job-dot"></span></button>
+      <button data-page="exports" class="nav-item"><i data-icon="box"></i><span class="nav-text">Exports</span></button>
+    </nav>
+    <div class="sidebar-bottom"><div class="local-card"><span class="status-dot"></span><div>Votre base, en local<small>Les données restent sur ce PC</small></div></div><button data-page="settings" class="nav-item"><i data-icon="settings"></i><span class="nav-text">Paramètres</span></button><div class="sidebar-footer"><span class="avatar">F</span><div>FRED Studio<small>Version 0.1 · Desktop</small></div><span class="mini-diamond">◇</span></div></div>
+  </aside>
+  <div class="app-shell">
+    <header class="topbar"><div class="breadcrumb">Espace de travail <span>/</span> <strong id="breadcrumb">Vue d’ensemble</strong></div><div class="topbar-actions"><span class="local-label"><span class="status-dot"></span>LOCAL</span><label class="language-control"><i data-icon="globe"></i><select id="language" aria-label="Langue des cartes"><option value="fr">Français</option><option value="en">English</option><option value="de">Deutsch</option><option value="it">Italiano</option></select></label><button id="refresh" class="icon-button" aria-label="Actualiser les données" title="Actualiser"><i data-icon="refresh"></i></button></div></header>
+    <main id="content" tabindex="-1"><div class="loading"><span class="spinner"></span>Ouverture de votre studio…</div></main>
+    <footer class="statusbar"><span><span class="status-dot"></span><span id="connection">Connexion au moteur local</span></span><span id="footer-date">FRED Studio · LorcanaJSON</span></footer>
+  </div>
+  <dialog id="card-dialog" aria-labelledby="detail-title"><div id="detail-content"></div></dialog>
+  <div id="toast" role="status" aria-live="polite" popover="manual"></div>
+</body>
+</html>

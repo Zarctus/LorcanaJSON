@@ -1,5 +1,9 @@
 # LorcanaJSON
 
+## FRED Studio — interface Windows
+
+Une interface de bureau est disponible pour parcourir le catalogue, préparer les corrections, lancer les traitements et récupérer les exports. Double-cliquer sur **FRED Studio.vbs** ou **Lancer FRED Studio.cmd**. Voir [le guide FRED Studio](studio/README.md) pour l’installation et le fonctionnement.
+
 LorcanaJSON is a project to collect card data for the *Disney Lorcana Trading Card Game* and to make that data available in a format that's easily accessible and parsable for *Lorcana*-related projects.  
 This repository only contains the code to generate the datafiles. For the datafiles themselves and how to use them, please visit [https://lorcanajson.org](https://lorcanajson.org) 
 ## Initial setup
