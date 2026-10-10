@@ -3617,7 +3617,7 @@
     ]
   },
   "2698": {
-    "effects": [
+    "abilities": [
       "⬡.+$",
       "⬡"
     ]
@@ -4448,20 +4448,18 @@
       "… ET AU-DELÀ !"
     ],
     "abilities": [
+      " pal$",
+      "",
       "\\.\n…E",
       ".\n\n…E",
       "…ETAU-DELÀ ! ",
       ""
-    ],
-    "effects": [
-      " pal$",
-      ""
     ]
   },
   "3207": {
-    "effects": [
-      "⬡\n",
-      "⬡\n\n"
+    "abilities": [
+      "⬡\nI",
+      "⬡\n\nI"
     ]
   },
   "3209": {
@@ -4472,15 +4470,15 @@
     ]
   },
   "3215": {
+    "abilities": [
+      "\n",
+      "\n\n"
+    ],
     "artistsText": [
       "tO",
       "t O",
       ":",
       ""
-    ],
-    "effects": [
-      "\n",
-      "\n\n"
     ]
   },
   "3218": {
@@ -4575,10 +4573,114 @@
       ""
     ]
   },
+  "3271": {
+    "flavorText": [
+      "ll",
+      "Il"
+    ]
+  },
+  "3273": {
+    "flavorText": [
+      "Î",
+      "l",
+      "z\\. I",
+      "z… ‘I",
+      "m…",
+      "m’…",
+      "cest",
+      "c'est",
+      "ço",
+      "ça"
+    ]
+  },
+  "3288": {
+    "abilities": [
+      "r1Q",
+      "r 1 ⬡"
+    ]
+  },
+  "3300": {
+    "flavorText": [
+      "E",
+      "É"
+    ]
+  },
+  "3309": {
+    "flavorText": [
+      "pé meenvoyatt",
+      "pá m'envoyait"
+    ]
+  },
+  "3334": {
+    "flavorText": [
+      "mas",
+      "m'as"
+    ]
+  },
+  "3337": {
+    "abilities": [
+      "r1",
+      "r 1"
+    ]
+  },
+  "3338": {
+    "abilities": [
+      "dencre",
+      "d'encre"
+    ]
+  },
+  "3339": {
+    "flavorText": [
+      "e T",
+      "e ? T"
+    ]
+  },
+  "3362": {
+    "effects": [
+      "- ",
+      "• ",
+      "\\|",
+      "Il",
+      "r1O",
+      "r 1 ⬡"
+    ]
+  },
+  "3393": {
+    "effects": [
+      "2 ou",
+      "2 ¤ ou"
+    ]
+  },
+  "3394": {
+    "effects": [
+      "\\|",
+      "1"
+    ]
+  },
+  "3449": {
+    "abilities": [
+      "2\\.\\)",
+      "2 ¤.)"
+    ]
+  },
   "3450": {
     "flavorText": [
       "fout",
       "faut"
+    ]
+  },
+  "3454": {
+    "flavorText": [
+      "\\bma\\b",
+      "m'a"
+    ]
+  },
+  "3456": {
+    "flavorText": [
+      "r\nIa ç ’ 3",
+      "r,",
+      "!$",
+      "!”"
     ]
   },
   "3460": {

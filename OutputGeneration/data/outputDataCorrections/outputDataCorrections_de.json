@@ -2483,7 +2483,7 @@
   },
   "2693": {
     "_skipFullTextSectionMergeAtIndex": 1,
-    "effects": [
+    "abilities": [
       "⬡\nW",
       "⬡\n\nW"
     ]
@@ -3145,14 +3145,6 @@
   "3138": {
     "_mergeEffectIndexWithPrevious": 1
   },
-  "3144": {
-    "abilities": [
-      "¤ u",
-      "◊ u",
-      "[X⟳] ",
-      "¤ "
-    ]
-  },
   "3153": {
     "flavorText": [
       "Apf",
@@ -3207,7 +3199,7 @@
     ]
   },
   "3207": {
-    "effects": [
+    "abilities": [
       "⬡\n",
       "⬡\n\n"
     ]
@@ -3225,13 +3217,13 @@
     ]
   },
   "3215": {
+    "abilities": [
+      "\n",
+      "\n\n"
+    ],
     "artistsText": [
       "!",
       ""
-    ],
-    "effects": [
-      "\n",
-      "\n\n"
     ]
   },
   "3217": {
@@ -3313,10 +3305,101 @@
       "(Während "
     ]
   },
+  "3266": {
+    "artistsText": [
+      "^EL UNS$",
+      "Hana Augustine"
+    ]
+  },
+  "3271": {
+    "abilities": [
+      "\n¤ ",
+      " ¤\n"
+    ]
+  },
+  "3273": {
+    "flavorText": [
+      "…‚N",
+      "… ‚Il"
+    ]
+  },
+  "3289": {
+    "abilities": [
+      "X",
+      "¤"
+    ]
+  },
+  "3297": {
+    "abilities": [
+      "B",
+      "⛉"
+    ],
+    "flavorText": [
+      "— R",
+      "—R"
+    ]
+  },
+  "3298": {
+    "flavorText": [
+      "\nM",
+      "\n—M"
+    ]
+  },
+  "3309": {
+    "flavorText": [
+      "ä",
+      "á"
+    ]
+  },
+  "3329": {
+    "flavorText": [
+      "•",
+      "…"
+    ]
+  },
+  "3337": {
+    "flavorText": [
+      "¤",
+      "%"
+    ]
+  },
   "3358": {
     "artistsText": [
       "^\\(EZ$",
       "Caelys"
+    ]
+  },
+  "3360": {
+    "effects": [
+      "Q",
+      "¤"
+    ]
+  },
+  "3362": {
+    "_mergeEffectIndexWithPrevious": 1,
+    "effects": [
+      "‚",
+      "• ",
+      "⟳ —",
+      "•"
+    ]
+  },
+  "3369": {
+    "flavorText": [
+      "—",
+      "–"
+    ]
+  },
+  "3387": {
+    "abilities": [
+      " O",
+      " ¤"
+    ]
+  },
+  "3449": {
+    "artistsText": [
+      "e$",
+      "é"
     ]
   },
   "3450": {
@@ -3325,10 +3408,30 @@
       "M"
     ]
   },
+  "3458": {
+    "abilities": [
+      "r\\+",
+      "r +"
+    ]
+  },
   "3460": {
     "artistsText": [
       "ä",
       "á"
+    ]
+  },
+  "3466": {
+    "abilities": [
+      "®",
+      "⛉"
+    ]
+  },
+  "3506": {
+    "abilities": [
+      "\\]",
+      "1",
+      "röp",
+      "rop"
     ]
   },
   "3594": {

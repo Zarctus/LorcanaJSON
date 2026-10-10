@@ -122,9 +122,13 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(f"chosen character's( [^{LorcanaSymbols.LORE}{LorcanaSymbols.STRENGTH}]{{1,2}})? this turn", f"chosen character's {LorcanaSymbols.STRENGTH} this turn", cardText)
 		# It frequently misreads the Ink symbol after 'Boost' (But not if was already fixed)
 		cardText = re.sub(fr"(?<=^Boost \d) ?[^{LorcanaSymbols.INK}](?!{LorcanaSymbols.INK})", f" {LorcanaSymbols.INK}", cardText)
+		# It often misses the closing parenthesis of the 'Ink drop' reminder text
+		if cardText.endswith(LorcanaSymbols.INK) and "(" in cardText:
+			cardText += ".)"
 		# Common typos
 		cardText = re.sub(r"\bluminary\b", "Illuminary", cardText)
 		cardText = re.sub(r"\bI[I/]+l?um", "Illum", cardText)
+		cardText = cardText.replace("lllumineer", "Illumineer")
 		cardText = re.sub(r"([Dd])rawa ?card", r"\1raw a card", cardText)
 		cardText = re.sub(r"\bL([ft])\b", "I\\1", cardText)
 		cardText = re.sub(r"\b([Hh])ed\b", r"\1e'd", cardText)
@@ -185,11 +189,11 @@ def correctText(cardText: str) -> str:
 		cardText = re.sub(fr"(\d)[ .]?(?:\W|0|D|O|Ô|Q{LorcanaSymbols.STRENGTH}){{,2}}(\s)(mehr )?(be)?zahl(en|t)\b", f"\\1 {LorcanaSymbols.INK}\\2\\3\\4zahl\\5", cardText)
 		cardText = re.sub(fr"zahlst(\sdu)?(\s)(\d) ?[0{LorcanaSymbols.STRENGTH}©]?(?=$| )", f"zahlst\\1\\2\\3 {LorcanaSymbols.INK}", cardText, flags=re.MULTILINE)
 		cardText = re.sub(fr"(?<=\bweniger\s)[{LorcanaSymbols.STRENGTH}QO](?=\sbezahlst\b)", LorcanaSymbols.INK, cardText)
-		cardText = cardText.replace("10 zu bezahlen", f"1 {LorcanaSymbols.INK} zu bezahlen")
+		cardText = re.sub(f"1(0| [^{LorcanaSymbols.INK}]) zu bezahlen", f"1 {LorcanaSymbols.INK} zu bezahlen", cardText)
 		# 'Challenger' reminder text
 		cardText = re.sub(r"herausfordert, erhält er \+(\d+) \S+\.\)", f"herausfordert, erhält er +\\1 {LorcanaSymbols.STRENGTH}.)", cardText)
 		# 'Support' reminder text
-		cardText = re.sub(r"(seine|ihre)(\s)(?:\S{1,2} )?in diesem Zug zur(\s)\S{1,2}", f"\\1\\2{LorcanaSymbols.STRENGTH} in diesem Zug zur\\3{LorcanaSymbols.STRENGTH}", cardText)
+		cardText = re.sub(r"(seine|ihre)(\s)(?:\S{1,2} )?(in\sdiesem\sZug\szur\s)\S{1,2}", f"\\1\\2{LorcanaSymbols.STRENGTH} \\3{LorcanaSymbols.STRENGTH}", cardText)
 		# It sometimes messes up if the second Strength symbol in the Support reminder text is completely missing, fix that
 		cardText = cardText.replace(f"{LorcanaSymbols.STRENGTH}nes", f"{LorcanaSymbols.STRENGTH} eines")
 		# Correct Shift/Gestaltwandel and Boost/Stärken with an ink symbol

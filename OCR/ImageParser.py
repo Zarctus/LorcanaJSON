@@ -297,7 +297,9 @@ class ImageParser:
 							lineRightX += _ABILITY_LABEL_MARGIN
 						labelCoords.append((topY, bottomY, lineRightX))
 						lastBottomY = bottomY
-		self._logger.debug(f"Finished finding label coords at {time.perf_counter() - startTime} seconds in")
+		else:
+			self._logger.debug("Skipping label parsing, card has no rules text")
+		self._logger.debug(f"Finished finding {len(labelCoords)} label coords at {time.perf_counter() - startTime} seconds in")
 
 		# Find the line dividing the abilities from the flavor text, if needed
 		flavorTextImage: Optional[cv2.typing.MatLike] = None

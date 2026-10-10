@@ -37,9 +37,10 @@ class ArtistsHandler:
 		correctedArtistText = correctedArtistText.replace(" 0. ", " O. ")
 		if correctedArtistText.endswith(" NE"):
 			correctedArtistText = correctedArtistText[:-3]
-		while re.search(r" [a-zAEè0-9ÿŸI|(){\\/_+*%.,;:'‘<>\"“”#¥©°=—-]{1,2}$", correctedArtistText):
+		while re.search(r" [a-zAEè0-9ÿŸI|(){\\/_+*%.,;:'‘<>\"“”#¥©°=~—-]{1,2}$", correctedArtistText):
 			correctedArtistText = correctedArtistText.rsplit(" ", 1)[0]
 		correctedArtistText = correctedArtistText.rstrip(".,*")
+		correctedArtistText = re.sub(r"(?<=\w)/", " /", correctedArtistText)
 		if "ggman-Sund" in correctedArtistText:
 			correctedArtistText = re.sub("H[^ä]ggman-Sund", "Häggman-Sund", correctedArtistText)
 		# elif "Toziim" in correctedArtistText or "Tôzüm" in correctedArtistText or "Toztim" in correctedArtistText or "Tézim" in correctedArtistText:
@@ -66,6 +67,8 @@ class ArtistsHandler:
 			correctedArtistText = correctedArtistText.replace("Dösiree", "Désirée")
 			correctedArtistText = re.sub(r"Man[6e]+\b", "Mané", correctedArtistText)
 		correctedArtistText = re.sub(r"\bAime\b", "Aimé", correctedArtistText)
+		correctedArtistText = re.sub("(?<=^Carolina )[^Á](?=lvarez$)", "Á", correctedArtistText)
+		correctedArtistText = re.sub(r"(?<=^Gabriela Galv)[^á](?=n$)", "á", correctedArtistText)
 		correctedArtistText = re.sub(r"\bChem[eé]ne\b", "Chemène", correctedArtistText)
 		correctedArtistText = correctedArtistText.replace(" lacopini", " Iacopini")
 		correctedArtistText = re.sub(r"\blvan\b", "Ivan", correctedArtistText)

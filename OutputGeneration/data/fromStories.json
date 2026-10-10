@@ -233,8 +233,9 @@
       "fr": "Dingo et Max",
       "it": "In viaggio con Pippo"
     },
+    "isPriorityStory": true,
     "matchingNames": ["Bobby Zimuruski", "Goofy Movie", "I2I", "Max Goof", "P.J. Pete", "Powerline", "Roxanne"],
-    "matchingIds": [2010, 2165, 2450]
+    "matchingIds": [2010, 2165, 2450, 3370]
   },
   "greatmousedetective": {
     "displayNames": {
@@ -361,7 +362,7 @@
       "fr": "Mickey et le Haricot magique",
       "it": "Topolino e il fagiolo magico"
     },
-    "matchingNames": ["Golden Harp", "Willie the Giant"]
+    "matchingNames": ["Golden Harp", "The Beanstalk", "Willie the Giant"]
   },
   "mickeyschristmascarol": {
     "isPriorityStory": true,
@@ -388,7 +389,8 @@
       "en": "Monsters, Inc.",
       "fr": "Monstres & Cie",
       "it": "Monsters & Co."
-    }
+    },
+    "matchingNames": ["Sulley"]
   },
   "mulan": {
     "displayNames": {
@@ -594,6 +596,10 @@
       "en": "Turning Red",
       "fr": "Alerte rouge",
       "it": "Red"
+    },
+    "matchingNames": ["4*Town"],
+    "matchingFields": {
+      "subtypes": "Red Panda"
     }
   },
   "up": {

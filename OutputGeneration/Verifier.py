@@ -87,6 +87,14 @@ def compareInputToOutput(cardIdsToVerify: Optional[List[int]]):
 			symbolCountChange = inputOverridesForCard.pop("_symbolCountChange", None)
 			openQuotemarkCountChange = inputOverridesForCard.pop("_openQuotemarkCountChange", 0)
 			closeQuotemarkCountChange = inputOverridesForCard.pop("_closeQuotemarkCountChange", 0)
+			if inputOverridesForCard.pop("_rulesTextInFlavorText", False):
+				if not inputCard["flavor_text"]:
+					print(f"ERROR: {CardUtil.createOutputCardIdentifier(outputCard, True)} should have its flavor text moved to its rules text, but it doesn't have flavor text")
+				elif inputCard["rules_text"]:
+					print(f"ERROR: {CardUtil.createOutputCardIdentifier(outputCard, True)} should have its flavor text moved to its rules text, but it already has rules text")
+				else:
+					inputCard["rules_text"] = inputCard.pop("flavor_text")
+					_prepareInputCardRulesText(inputCard)
 			for fieldName, correctionsTuple in inputOverridesForCard.items():
 				TextCorrection.correctCardFieldFromList(inputCard, fieldName, correctionsTuple)
 
@@ -321,6 +329,8 @@ def _prepareInputCardFlavorText(inputCard: Dict, language=None):
 	inputFlavorText = inputFlavorText.replace("—%", "—")
 	inputFlavorText = re.sub("%— (?=[A-Z])", " —", inputFlavorText)
 	inputFlavorText = re.sub(r"(?<!\d) ?% ?", " ", inputFlavorText)
+	# A '#' is a replacement for an actual '%'-character in the flavor text. Could be followed
+	inputFlavorText = re.sub("#(?: (\\W))?", "%\\1", inputFlavorText)
 	inputFlavorText = inputFlavorText.replace("  ", " ")
 	if inputFlavorText.endswith(" ERRATA"):
 		inputFlavorText = inputFlavorText.rsplit(" ", 1)[0]
@@ -343,12 +353,18 @@ def _prepareInputCardFlavorText(inputCard: Dict, language=None):
 	inputCard["flavor_text"] = inputFlavorText
 
 def _printDifferencesDescription(outputCard: Dict, fieldName: str, inputString: str, outputString: str):
-	maxCharIndex = max(len(inputString), len(outputString))
-	fieldDifferencesPointers = [" " for _ in range(maxCharIndex)]
+	inputLength = len(inputString)
+	outputLength = len(outputString)
+	maxCharIndex = max(inputLength, outputLength)
+	canHaveOffset = "\"" in outputString
+	fieldDifferencesPointers = [" " for _ in range(maxCharIndex + outputString.count("'"))]
+	fieldDifferencesPointerOffset: int = 0  # Quotemarks are escaped in the printed text, turning them into two characters; take that into account
 	fieldDifferencesCount = 0
 	for charIndex in range(maxCharIndex):
-		if len(inputString) <= charIndex or len(outputString) <= charIndex or inputString[charIndex] != outputString[charIndex]:
-			fieldDifferencesPointers[charIndex] = "^"
+		if canHaveOffset and charIndex < outputLength and outputString[charIndex] == "'":
+			fieldDifferencesPointerOffset += 1
+		if inputLength <= charIndex or outputLength <= charIndex or inputString[charIndex] != outputString[charIndex]:
+			fieldDifferencesPointers[charIndex + fieldDifferencesPointerOffset] = "^"
 			fieldDifferencesCount += 1
 	print(f"{outputCard['fullName']} (ID {outputCard['id']}, {outputCard['fullIdentifier']}), {fieldName}, {fieldDifferencesCount:,} difference{'' if fieldDifferencesCount == 1 else 's'}:\n"
 		  f"  IN:  {inputString!r}\n"

@@ -18,7 +18,7 @@ from util.typedDicts.OutputCard import HistoricDataEntry, OutputCard
 _logger = logging.getLogger("LorcanaJSON")
 _CARD_CODE_LOOKUP = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 _KEYWORD_REGEX = re.compile(r"(?:^|\n)([A-ZÀ][^.]+)(?=\s\([A-Z])")
-_KEYWORD_REGEX_WITHOUT_REMINDER = re.compile(r"^([A-ZÀ][^ ]{2,}|À)( ([dl]['’]|de )?[A-Zastu][^ ]{2,})?( \+?\d+)?( .)?$")
+_KEYWORD_REGEX_WITHOUT_REMINDER = re.compile(r"^([A-ZÀ][^ ]{2,}|À)( ([dl]['’]|de )*[A-Zastu][^ ]{2,})?( \+?\d+)?( .)?$")
 _ABILITY_TYPE_CORRECTION_FIELD_TO_ABILITY_TYPE: Dict[str, str] = {"_forceAbilityIndexToActivated": "activated", "_forceAbilityIndexToKeyword": "keyword", "_forceAbilityIndexToStatic": "static", "_forceAbilityIndexToTriggered": "triggered"}
 _SYMBOL_LETTER_REGEX = re.compile(f"[{''.join(LorcanaSymbols.LETTER_TO_SYMBOL.values())}]")
 
@@ -289,6 +289,9 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 						keywordLines.extend(remainingTextLineParts)
 				elif _KEYWORD_REGEX_WITHOUT_REMINDER.match(remainingTextLine):
 					# Single words, possibly followed by a number, but not followed by a period, are assumed to be keywords
+					keywordLines.append(remainingTextLine)
+				elif re.match(fr"^{GlobalConfig.translation.shift} [^.(]+$", remainingTextLine):
+					# Shift without reminder but with special costs (like "Shift Remove 2 ink drops" from "Baymax - Amped Up" (ID 3502))
 					keywordLines.append(remainingTextLine)
 				if keywordLines:
 					for keywordLine in keywordLines:
@@ -635,6 +638,9 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 					keyword, keywordValue, inkSymbol = keyword.rsplit(" ", 2)
 				elif ":" in keyword:
 					keyword, keywordValue = re.split(" ?: ?", keyword)
+				elif keyword.startswith(GlobalConfig.translation.shift):
+					keywordValue = keyword[len(GlobalConfig.translation.shift)+1:]
+					keyword = GlobalConfig.translation.shift
 				ability["keyword"] = keyword
 				if keywordValue is not None:
 					ability["keywordValue"] = keywordValue
