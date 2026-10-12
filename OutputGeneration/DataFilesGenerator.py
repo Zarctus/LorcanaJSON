@@ -18,7 +18,7 @@ from util import CardUtil, IdentifierParser
 from util.typedDicts.OutputCard import OutputCard
 
 _logger = logging.getLogger("LorcanaJSON")
-FORMAT_VERSION = "2.3.5"
+FORMAT_VERSION = "2.4.0"
 # The card parser is run in threads, and each thread needs to initialize its own ImageParser (otherwise weird errors happen in Tesseract)
 # Store each initialized ImageParser in its own thread storage
 _threadingLocalStorage = threading.local()
@@ -96,6 +96,9 @@ def createOutputFiles(onlyParseIds: Optional[List[int]] = None, shouldShowImages
 			continue
 		if len(inputCardsOfType) == 0:
 			_logger.warning(f"Input card type list for type {cardType!r} is empty, skipping")
+			continue
+		if cardType == "supplies":
+			_logger.warning(f"Skipping {len(inputCardsOfType):,} '{cardType}'-type cards, not implemented yet")
 			continue
 		cardTypeText = cardType[:-1].title()  # 'cardType' is plural ('characters', 'items', etc), make it singular
 		cardTypeText = GlobalConfig.translation[cardTypeText]
