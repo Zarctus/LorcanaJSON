@@ -90,6 +90,10 @@ def createOutputFiles(onlyParseIds: Optional[List[int]] = None, shouldShowImages
 		inputData = json.load(inputFile)
 	inputCards: List[Dict] = []
 	for cardType, inputCardsOfType in inputData["cards"].items():
+		if cardType == "supplies":
+			# Supplies are counters, not cards; they lack rarities and have no ink colors.
+			_logger.info(f"Skipping {len(inputCardsOfType)} supply counters from the card catalog")
+			continue
 		if len(inputCardsOfType) == 0:
 			_logger.warning(f"Input card type list for type {cardType!r} is empty, skipping")
 			continue
