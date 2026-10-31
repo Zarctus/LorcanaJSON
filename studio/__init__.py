@@ -1,1 +1,0 @@
-"""Desktop companion for LorcanaJSON."""
