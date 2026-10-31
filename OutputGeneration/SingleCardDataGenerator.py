@@ -279,7 +279,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 				if _KEYWORD_REGEX.match(remainingTextLine):
 					keywordLines.append(remainingTextLine)
 				# Some cards list keyword abilities without reminder text, sometimes multiple separated by commas
-				elif ", " in remainingTextLine and not remainingTextLine.endswith("."):
+				elif ", " in remainingTextLine and not remainingTextLine.endswith(".") and not remainingTextLine.endswith(")"):
 					remainingTextLineParts = remainingTextLine.split(", ")
 					for remainingTextLinePart in remainingTextLineParts:
 						if not _KEYWORD_REGEX_WITHOUT_REMINDER.match(remainingTextLinePart.rstrip()):
@@ -290,7 +290,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 				elif _KEYWORD_REGEX_WITHOUT_REMINDER.match(remainingTextLine):
 					# Single words, possibly followed by a number, but not followed by a period, are assumed to be keywords
 					keywordLines.append(remainingTextLine)
-				elif re.match(fr"^{GlobalConfig.translation.shift} [^.(]+$", remainingTextLine):
+				elif outputCard["type"] == GlobalConfig.translation.Character and re.match(fr"^{GlobalConfig.translation.shift} [^.(]+\.?( \([^)]+\))?$", remainingTextLine):
 					# Shift without reminder but with special costs (like "Shift Remove 2 ink drops" from "Baymax - Amped Up" (ID 3502))
 					keywordLines.append(remainingTextLine)
 				if keywordLines:
@@ -582,6 +582,7 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 					shortenedSubtype, newSubtype = outputCard["subtypes"][subtypeIndex].rsplit(LorcanaSymbols.SEPARATOR_STRING, 1)
 					outputCard["subtypes"][subtypeIndex] = shortenedSubtype
 					outputCard["subtypes"].insert(subtypeIndex + 1, newSubtype)
+
 	# An effect should never start with a separator; if it does, join it with the previous effect since it should be part of its option list
 	# An effect also never starts with a number, also join that with the previous effect
 	if "effects" in outputCard:
@@ -682,7 +683,8 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 						re.search(r"une carte est\splacée", ability["effect"])):
 						ability["type"] = "triggered"
 				elif GlobalConfig.language == Language.GERMAN:
-					if re.match(r"Einmal\s(pro|während\sdeines)\sZug(es)?,?\sdarfst\sdu", ability["effect"]) or re.search(r"während\sdes\sZuges\sder\sLuminari,sdarf\sein\sLuminari", ability["effect"]):
+					if (re.match(r"Einmal\s(pro|während\sdeines)\sZug(es)?,?(\sfalls\s[^,]+,)?\sdarfst\sdu", ability["effect"]) or re.search(r"während\sdes\sZuges\sder\sLuminari,\sdarf\sein\sLuminari", ability["effect"]) or
+							re.match(r"Die\sLuminari\skönnen\sin\sihrem\sZug\s", ability["effect"])):
 						ability["type"] = "activated"
 					elif (re.match(r"Wenn(\sdu)?\sdiese", ability["effect"]) or re.match(r"Wenn\seiner\sdeiner\sCharaktere", ability["effect"]) or
 						  re.match(r"Wenn\sdu\seinen\sCharakter\sauf\sdiesen\sCharakter", ability["effect"]) or re.search(r"(^J|\bj)edes\sMal\b", ability["effect"]) or
@@ -690,12 +692,12 @@ def parseSingleCard(inputCard: Dict, ocrResult: OcrResult, externalLinksHandler:
 						  re.search(r"(^Z|\bz)u\sBeginn\s(deines|von\s\w+)\sZug", ability["effect"]) or re.match(r"Am\sEnde\s(deines|des)\sZuges", ability["effect"]) or
 						  re.match(r"Falls\sdu\sGestaltwandel\sbenutzt\shas", ability["effect"]) or "wenn du eine Karte ziehst" in ability["effect"] or
 						  re.search(r"\bwährend\ser\seinen?[\s\w]+herausfordert\b", ability["effect"]) or re.search(r"wenn\sdieser\sCharakter\szu\seinem\sOrt\sbewegt", ability["effect"]) or
-						  re.match(r"Wenn\s\w+\sdiese[nrs]\s\w+\sausspielt", ability["effect"]) or re.match(r"Wenn\sdu\seine.+ausspielst", ability["effect"], flags=re.DOTALL)):
+						  re.match(r"Wenn\s\w+\sdiese[nrs]\s\w+\sausspielt", ability["effect"]) or re.match(r"Wenn\sdu\seine.+ausspielst", ability["effect"], flags=re.DOTALL) or re.match(r"Wenn die (Luminari|Ranke)\b", ability["effect"])):
 						ability["type"] = "triggered"
 				elif GlobalConfig.language == Language.ITALIAN:
-					if re.match(r"Una\svolta\s(durante\sil\stuo|per)\sturno,\spuoi\b", ability["effect"]):
+					if re.match(r"Una\svolta\s(durante\sil\stuo|per)\sturno,(\sse\s[^,]+,)?\spuoi\b", ability["effect"]):
 						ability["type"] = "activated"
-					elif (re.match(r"Quando\sgiochi", ability["effect"]) or re.search(r"(^Q|\sq)uando\s(questo|scarti|sposti|trasformi)", ability["effect"]) or re.search(r"(^O|\so)gni\svolta\sche", ability["effect"]) or
+					elif (re.match(r"Quando\sgiochi", ability["effect"]) or re.search(r"(^Q|\sq)uando\s(quest[ao]|scarti|sposti|trasformi)", ability["effect"]) or re.search(r"(^O|\so)gni\svolta\sche", ability["effect"]) or
 						  re.match(r"All'inizio\sdel\stuo\sturno", ability["effect"]) or re.match(r"Alla\sfine\sdel(\stuo)?\sturno", ability["effect"]) or
 						  re.search(r"quando\saggiungi\suna\scarta\sal\stuo\scalamaio", ability["effect"]) or re.match(r"Quando\sun\savversario", ability["effect"])):
 						ability["type"] = "triggered"
